@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Tabs Home",
+  "version": "1.0",
+  "description": "Chrome tabs collection",
+  "icons": {
+    "128": "images/icon.png"
+  },
+  "action": {
+    "default_title": "Click to open sidepanel",
+    "default_icon": "images/icon.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "scripting", "activeTab", "sidePanel", "tabs"],
+  "commands": {
+    "open-side-panel": {
+      "suggested_key": {
+        "default": "Ctrl+B",
+        "mac": "Ctrl+B",
+        "windows": "Ctrl+B"
+      },
+      "description": "Open side panel"
+    }
+  }
+}
