@@ -30,3 +30,8 @@ body {
     border-radius: 3px;
     cursor: pointer;
 }
+
+.tab-item.dragging {
+    opacity: 0.5;
+    border: 1px dashed #666;
+}
