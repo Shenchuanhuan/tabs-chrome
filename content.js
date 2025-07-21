@@ -18,6 +18,7 @@ function createGroupName(name) {
   const group = document.createElement("div");
   group.className = "group";
   group.dataset.group = name;
+  group.dataset.type = "group";
 
   const title = document.createElement("h3");
   title.textContent = name;
@@ -68,9 +69,14 @@ function createTabElement(tab) {
   tabEl.setAttribute("draggable", "true");
   tabEl.dataset.tabId = id;
 
-  // 点击打开
+  // 点击打开: 仅group中点击打开
   tabEl.addEventListener("click", () => {
-    chrome.tabs.create({ url: url });
+    if (tabEl.parentElement && tabEl.parentElement.dataset.type === "group") {
+      // 打开新的 tab
+      chrome.tabs.create({ url: url });
+      // 从父容器中移除当前 tab 元素
+      tabEl.parentElement.removeChild(tabEl);
+    }
   });
   // 开始拖拽
   tabEl.addEventListener("dragstart", (e) => {
