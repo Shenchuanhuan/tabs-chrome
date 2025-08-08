@@ -274,6 +274,7 @@ addCurrentBtn.addEventListener("click", () => {
       });
     } else {
       // 当前窗口仅有current tab且是有效tab，收起当前tab并创新一个新的窗口
+      // 这里先创建再收起，否则仅有一个窗口关闭后，创建新tab时，如果还有其它window，当前window会puch关闭，新tab在其它window创建
       chrome.tabs.create({ url: "chrome://newtab" }, () => {
         chrome.tabs.remove(id);
       });
