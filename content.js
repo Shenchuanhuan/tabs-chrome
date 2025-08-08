@@ -116,10 +116,34 @@ function createTabElement(tab) {
   // 点击打开: 仅group中点击打开
   tabEl.addEventListener("click", () => {
     if (tabEl.parentElement && tabEl.parentElement.dataset.type === "group") {
+      const groupEl = tabEl.parentElement;
+      const groupId = groupEl.dataset.groupId;
+
       // 打开新的 tab
       chrome.tabs.create({ url: url });
       // 从父容器中移除当前 tab 元素
-      tabEl.parentElement.removeChild(tabEl);
+      groupEl.removeChild(tabEl);
+      // 父容器中没有tab元素后，移除父容器
+      const noTabsInGroup = groupEl.querySelectorAll(".tab-item").length === 0;
+      if (noTabsInGroup) {
+        groupContainer.removeChild(groupEl);
+      }
+
+      // 更新localStorage数据
+      chrome.storage.local.get(["groups"], (res) => {
+        let groups = res.groups;
+        const group = groups.find((g) => g.id === groupId);
+        // 如果domain group内没有任何tab，则删除对应group
+        if (noTabsInGroup) {
+          groups = groups.filter((g) => g.id !== groupId);
+        } else {
+          group.tabs = group.tabs.filter(
+            (tab) => tab.id != tabEl.dataset.tabId,
+          );
+        }
+
+        chrome.storage.local.set({ groups });
+      });
     }
   });
   // 开始拖拽
@@ -212,6 +236,7 @@ groupInput.addEventListener("keydown", (e) => {
   }
 });
 
+// Collapse current tab
 addCurrentBtn.addEventListener("click", () => {
   chrome.tabs.query({ currentWindow: true }, (allTabs) => {
     const activeTab = allTabs.find((tab) => tab.active);
