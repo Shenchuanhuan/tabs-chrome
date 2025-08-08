@@ -273,7 +273,10 @@ addCurrentBtn.addEventListener("click", () => {
         chrome.tabs.remove(id);
       });
     } else {
-      chrome.tabs.create({ url: "chrome://newtab" });
+      // 当前窗口仅有current tab且是有效tab，收起当前tab并创新一个新的窗口
+      chrome.tabs.create({ url: "chrome://newtab" }, () => {
+        chrome.tabs.remove(id);
+      });
     }
   });
 });
