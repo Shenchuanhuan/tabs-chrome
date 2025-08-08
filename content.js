@@ -1,4 +1,6 @@
 const createGroupBtn = document.getElementById("createGroupBtn");
+const addCurrentBtn = document.getElementById("addCurrent");
+const addOthersBtn = document.getElementById("addOthesBtn");
 const groupInput = document.getElementById("groupInput");
 const groupContainer = document.getElementById("groupContainer");
 
@@ -6,23 +8,60 @@ const groupContainer = document.getElementById("groupContainer");
 let currentDraggingTabEl = null;
 
 // 初始化所有可拖拽 tab（从当前窗口中获取）
-chrome.tabs.query({ currentWindow: true }, (tabs) => {
-  tabs.forEach((tab) => {
-    const tabEl = createTabElement(tab);
-    groupContainer.appendChild(tabEl);
-  });
-});
+// chrome.tabs.query({ currentWindow: true }, (tabs) => {
+//   tabs.forEach((tab) => {
+//     const tabEl = createTabElement(tab);
+//     groupContainer.appendChild(tabEl);
+//   });
+// });
 
 // TODO
-function createGroupName(name) {
+function createGroupName({ name, id, isAbleToOperate }) {
   const group = document.createElement("div");
+  const groupId = id || `group-${Date.now()}`;
+  group.dataset.groupId = groupId;
   group.className = "group";
   group.dataset.group = name;
   group.dataset.type = "group";
 
-  const title = document.createElement("h3");
-  title.textContent = name;
-  group.appendChild(title);
+  // 标题部分
+  const titleWrapper = document.createElement("div");
+  titleWrapper.className = "group-title-wrapper";
+
+  const titleEl = document.createElement("h3");
+  titleEl.textContent = name;
+
+  titleWrapper.appendChild(titleEl);
+
+  if (isAbleToOperate) {
+    // ✏️ 创建重命名按钮
+    const renameBtn = document.createElement("button");
+    renameBtn.textContent = "✏️";
+    renameBtn.title = "重命名";
+    renameBtn.addEventListener("click", () => {
+      const newName = prompt("请输入新的分组名称", titleEl.textContent);
+      if (newName && newName.trim()) {
+        titleEl.textContent = newName.trim();
+        updateGroupNameInStorage(groupId, newName.trim());
+      }
+    });
+
+    // ❌ 创建删除按钮
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "❌";
+    deleteBtn.title = "删除分组";
+    deleteBtn.addEventListener("click", () => {
+      if (confirm("确定删除该分组及其包含链接？")) {
+        group.remove();
+        deleteGroupFromStorage(groupId);
+      }
+    });
+
+    titleWrapper.appendChild(renameBtn);
+    titleWrapper.appendChild(deleteBtn);
+  }
+
+  group.appendChild(titleWrapper);
 
   group.addEventListener("dragover", (e) => {
     e.preventDefault();
@@ -44,19 +83,23 @@ function createGroupName(name) {
 
       // 移除元素元素
       if (draggingEl && draggingEl.parentElement) {
-        console.log("remove child");
         draggingEl.parentElement.removeChild(draggingEl);
       }
 
-      // 关闭对应chrome tab
-      if (active) {
-      } else {
-        chrome.tabs.remove(id);
-      }
+      // 关闭对应chrome tab: 现在的功能应该不会出现这种情况了
+      // if (active) {
+      //   // TODO
+      // } else {
+      //   chrome.tabs.remove(id);
+      // }
+
+      // 更新持续缓存
+      saveCurrentUIStateToStorage();
     });
   });
 
   groupContainer.appendChild(group);
+  return group;
 }
 
 // TODO
@@ -68,6 +111,7 @@ function createTabElement(tab) {
   tabEl.textContent = title;
   tabEl.setAttribute("draggable", "true");
   tabEl.dataset.tabId = id;
+  tabEl.dataset.tabUrl = url;
 
   // 点击打开: 仅group中点击打开
   tabEl.addEventListener("click", () => {
@@ -108,10 +152,53 @@ function createTabElement(tab) {
   return tabEl;
 }
 
-createGroupBtn.addEventListener("click", () => {
-  groupInput.style.display = "block";
-  groupInput.focus();
-});
+function saveCurrentUIStateToStorage() {
+  const groups = [];
+
+  document.querySelectorAll(".group").forEach((groupEl) => {
+    const groupId = groupEl.dataset.groupId;
+    const title = groupEl.dataset.group;
+    const tabs = [];
+
+    groupEl.querySelectorAll(".tab-item").forEach((tabEl) => {
+      tabs.push({
+        id: parseInt(tabEl.dataset.tabId),
+        title: tabEl.textContent,
+        url: tabEl.dataset.tabUrl,
+      });
+    });
+
+    groups.push({ id: groupId, title, tabs });
+  });
+
+  chrome.storage.local.set({ groups });
+}
+
+// 更新group name
+function updateGroupNameInStorage(groupId, newTitle) {
+  chrome.storage.local.get(["groups"], (res) => {
+    const groups = res.groups || [];
+    const group = groups.find((g) => g.id === groupId);
+    if (group) {
+      group.title = newTitle;
+      chrome.storage.local.set({ groups });
+    }
+  });
+}
+
+// delete group
+function deleteGroupFromStorage(groupId) {
+  chrome.storage.local.get(["groups"], (res) => {
+    const groups = res.groups || [];
+    const newGroups = groups.filter((g) => g.id !== groupId);
+    chrome.storage.local.set({ groups: newGroups });
+  });
+}
+
+// createGroupBtn.addEventListener("click", () => {
+//   groupInput.style.display = "block";
+//   groupInput.focus();
+// });
 
 groupInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
@@ -120,6 +207,63 @@ groupInput.addEventListener("keydown", (e) => {
     groupInput.style.display = "none";
 
     if (name === "") return;
-    createGroupName(name);
+    createGroupName({ name });
+    saveCurrentUIStateToStorage();
   }
+});
+
+addCurrentBtn.addEventListener("click", () => {
+  chrome.tabs.query({ currentWindow: true }, (allTabs) => {
+    const activeTab = allTabs.find((tab) => tab.active);
+    const { url, index, id } = activeTab;
+
+    // 空白tab不需要存储
+    if (url.indexOf("chrome://newtab") !== -1) {
+      return false;
+    }
+
+    // 将当前tab加入domain分组
+    const _url = new URL(url);
+    const domain = _url.hostname;
+    const groups = document.querySelectorAll(`.group[data-group="${domain}"]`);
+
+    const group =
+      groups[0] ?? createGroupName({ name: domain, isAbleToOperate: false });
+    const tabEl = createTabElement(activeTab);
+    group.appendChild(tabEl);
+    // 保存分组变化
+    saveCurrentUIStateToStorage();
+
+    // 激活新的currentTab并关闭当前currentTab
+    let adjacentTab = null;
+    if (index > 0) {
+      adjacentTab = allTabs[index - 1];
+    } else if (allTabs.length > 1) {
+      adjacentTab = allTabs[index + 1];
+    }
+
+    if (adjacentTab) {
+      chrome.tabs.update(adjacentTab.id, { active: true }, () => {
+        // 激活后再关闭当前active tab
+        chrome.tabs.remove(id);
+      });
+    } else {
+      chrome.tabs.create({ url: "chrome://newtab" });
+    }
+  });
+});
+
+window.addEventListener("DOMContentLoaded", () => {
+  chrome.storage.local.get(["groups"], (result) => {
+    let groups = result.groups || [];
+    groups.forEach((groupItem) => {
+      const { title, id } = groupItem;
+      const group = createGroupName({ name: title, id });
+
+      groupItem.tabs.forEach((tab) => {
+        const tabEl = createTabElement(tab);
+        group.appendChild(tabEl);
+      });
+    });
+  });
 });
