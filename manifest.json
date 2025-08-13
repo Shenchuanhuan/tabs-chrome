@@ -4,14 +4,14 @@
   "version": "1.0",
   "description": "Chrome tabs collection",
   "icons": {
-    "128": "images/icon.png"
+    "128": "assets/icons/icon.png"
   },
   "action": {
     "default_title": "Click to open sidepanel",
-    "default_icon": "images/icon.png"
+    "default_icon": "assets/icons/icon.png"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/background.js"
   },
   "permissions": ["storage", "scripting", "activeTab", "sidePanel", "tabs"],
   "commands": {

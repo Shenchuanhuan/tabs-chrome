@@ -102,7 +102,7 @@ function createGroupName({ name, id, isAbleToOperate }) {
   return group;
 }
 
-// TODO
+// 创建group里的tab element
 function createTabElement(tab) {
   const { url, title, id } = tab;
 
@@ -119,7 +119,7 @@ function createTabElement(tab) {
       const groupEl = tabEl.parentElement;
       const groupId = groupEl.dataset.groupId;
 
-      // 打开新的 tab
+      // 在新的标签页打开点击的tab
       chrome.tabs.create({ url: url });
       // 从父容器中移除当前 tab 元素
       groupEl.removeChild(tabEl);

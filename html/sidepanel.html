@@ -2,15 +2,20 @@
     <head>
         <meta charset="UTF-8" />
         <title>Tab Grouper</title>
-        <link rel="stylesheet" href="../style.css" />
+        <link rel="stylesheet" href="../dist/style.css" />
+        <!-- <script src="../lib/tailwindcss.3.14.7.css"></script> -->
     </head>
     <body>
         <!-- <button id="createGroupBtn">Create Group</button> -->
-        <button id="addCurrent">收起当前页</button>
+        <div class="flex">
+            <button id="addCurrent">收起当前页</button>
+            <input type="text" placeholder="Search key word" />
+        </div>
+
         <!-- <button id="addOthesBtn">Add Others</button> -->
         <input id="groupInput" type="text" placeholder="Enter group name" />
         <div id="groupContainer"></div>
         <div id="tooltip" class="tooltip hidden"></div>
-        <script src="../content.js"></script>
+        <script src="../src/content.js"></script>
     </body>
 </html>

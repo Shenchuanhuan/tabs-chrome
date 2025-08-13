@@ -3,3 +3,5 @@ dev.md
 
 # mac trash
 .DS_Store
+
+node_modules
