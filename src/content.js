@@ -3,9 +3,16 @@ const addCurrentBtn = document.getElementById("addCurrent");
 const addOthersBtn = document.getElementById("addOthesBtn");
 const groupInput = document.getElementById("groupInput");
 const groupContainer = document.getElementById("groupContainer");
+const searchInput = document.getElementById("keywordSearch");
 
 // 记录当前拖拽元素
 let currentDraggingTabEl = null;
+
+// 记录当前搜索值
+let currentSearchWords = "";
+
+// 临时数据中转站
+let tempGroupDatas = [];
 
 // 初始化所有可拖拽 tab（从当前窗口中获取）
 // chrome.tabs.query({ currentWindow: true }, (tabs) => {
@@ -14,6 +21,19 @@ let currentDraggingTabEl = null;
 //     groupContainer.appendChild(tabEl);
 //   });
 // });
+
+// Render group datas
+function renderElements(groups) {
+  groups.forEach((groupItem) => {
+    const { title, id } = groupItem;
+    const group = createGroupName({ name: title, id });
+
+    groupItem.tabs.forEach((tab) => {
+      const tabEl = createTabElement(tab);
+      group.appendChild(tabEl);
+    });
+  });
+}
 
 // TODO
 function createGroupName({ name, id, isAbleToOperate }) {
@@ -219,6 +239,28 @@ function deleteGroupFromStorage(groupId) {
   });
 }
 
+// 更新搜索
+async function updateGroupTabsBySearch(keyword) {
+  const { groups } = await chrome.storage.local.get(["groups"]);
+  let filtered_groups = [];
+  if (!keyword) {
+    filtered_groups = groups;
+  } else {
+    groups.forEach((group) => {
+      const filtered_tabs = group.tabs.filter(
+        (tab) => tab.title.includes(keyword) || tab.url.includes(keyword),
+      );
+
+      if (filtered_tabs.length > 0) {
+        filtered_groups.push({ ...group, tabs: filtered_tabs });
+      }
+    });
+  }
+
+  groupContainer.innerHTML = "";
+  renderElements(filtered_groups);
+}
+
 // createGroupBtn.addEventListener("click", () => {
 //   groupInput.style.display = "block";
 //   groupInput.focus();
@@ -282,17 +324,21 @@ addCurrentBtn.addEventListener("click", () => {
   });
 });
 
+// search
+searchInput.addEventListener("keydown", (e) => {
+  if (e.code === "Enter") {
+    const searchWords = e.target.value.trim();
+    if (currentSearchWords !== searchWords) {
+      // record current search words
+      currentSearchWords = searchWords;
+      updateGroupTabsBySearch(searchWords);
+    }
+  }
+});
+
 window.addEventListener("DOMContentLoaded", () => {
   chrome.storage.local.get(["groups"], (result) => {
     let groups = result.groups || [];
-    groups.forEach((groupItem) => {
-      const { title, id } = groupItem;
-      const group = createGroupName({ name: title, id });
-
-      groupItem.tabs.forEach((tab) => {
-        const tabEl = createTabElement(tab);
-        group.appendChild(tabEl);
-      });
-    });
+    renderElements(groups);
   });
 });
