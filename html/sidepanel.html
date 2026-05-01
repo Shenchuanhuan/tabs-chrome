@@ -11,12 +11,6 @@
           <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </button>
-      <button id="addCurrent" class="btn-collapse flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition">
-        <svg class="icon-sm" viewBox="0 0 16 16" fill="none">
-          <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        收起当前页
-      </button>
       <div class="search-wrapper flex items-center flex-1 relative">
         <svg class="search-icon absolute left-2.5 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 16 16" fill="none">
           <circle cx="7" cy="7" r="5.5" stroke="#9ca3af" stroke-width="1.5"/>
@@ -34,6 +28,21 @@
           </svg>
         </button>
       </div>
+    </div>
+
+    <div class="action-bar flex items-center gap-2 px-3 py-3 bg-white border-b">
+      <button id="addCurrent" class="btn-collapse flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition shrink-0">
+        <svg class="icon-sm" viewBox="0 0 16 16" fill="none">
+          <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        收起当前页
+      </button>
+      <input
+        id="saveReason"
+        class="flex-1 rounded-md text-sm px-3 py-1.5 border border-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+        type="text"
+        placeholder="请填写存储原因"
+      />
     </div>
 
     <input id="groupInput" type="text" placeholder="Enter group name" />

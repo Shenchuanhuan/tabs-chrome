@@ -1,13 +1,8 @@
 const addCurrentBtn = document.getElementById("addCurrent");
 const closePanelBtn = document.getElementById("closePanel");
 const groupInput = document.getElementById("groupInput");
-// ... rest of the constants
+const saveReasonInput = document.getElementById("saveReason");
 
-if (closePanelBtn) {
-  closePanelBtn.addEventListener("click", () => {
-    window.parent.postMessage("close-tabs-home-panel", "*");
-  });
-}
 const groupContainer = document.getElementById("groupContainer");
 const searchInput = document.getElementById("keywordSearch");
 const searchClear = document.getElementById("searchClear");
@@ -15,6 +10,12 @@ const emptyState = document.getElementById("emptyState");
 
 let currentDraggingTabEl = null;
 let currentSearchWords = "";
+
+if (closePanelBtn) {
+  closePanelBtn.addEventListener("click", () => {
+    window.parent.postMessage("close-tabs-home-panel", "*");
+  });
+}
 
 function getFaviconUrl(url, favIconUrl) {
   if (favIconUrl) return favIconUrl;
@@ -56,7 +57,6 @@ function renderElements(groups) {
   groups.forEach((groupItem) => {
     const { title, id, tabs } = groupItem;
     const group = createGroupElement({ name: title, id, isAbleToOperate: id && !id.startsWith("group-") ? false : true });
-    // Auto-domain groups use domain as id, manual groups use "group-{timestamp}"
     const isDomain = !id || !id.startsWith("group-");
     if (isDomain) {
       group.dataset.group = title;
@@ -82,7 +82,6 @@ function createGroupElement({ name, id, isAbleToOperate }) {
   group.className = "group";
   group.dataset.type = "group";
 
-  // Header
   const header = document.createElement("div");
   header.className = "group-header";
   header.addEventListener("click", (e) => {
@@ -90,7 +89,6 @@ function createGroupElement({ name, id, isAbleToOperate }) {
     group.classList.toggle("collapsed");
   });
 
-  // Favicon for domain groups
   const domainIcon = document.createElement("span");
   domainIcon.className = "group-icon";
   if (name.includes(".") && !isAbleToOperate) {
@@ -98,19 +96,16 @@ function createGroupElement({ name, id, isAbleToOperate }) {
   }
   header.appendChild(domainIcon);
 
-  // Title
   const titleEl = document.createElement("span");
   titleEl.className = "group-title";
   titleEl.textContent = name;
   header.appendChild(titleEl);
 
-  // Tab count
   const countEl = document.createElement("span");
   countEl.className = "group-count";
   countEl.textContent = "0";
   header.appendChild(countEl);
 
-  // Actions (only for manual groups)
   if (isAbleToOperate) {
     const actions = document.createElement("span");
     actions.className = "group-actions";
@@ -145,7 +140,6 @@ function createGroupElement({ name, id, isAbleToOperate }) {
     header.appendChild(actions);
   }
 
-  // Collapse chevron
   const chevron = document.createElement("span");
   chevron.className = "collapse-chevron";
   chevron.innerHTML = '<svg viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -153,12 +147,10 @@ function createGroupElement({ name, id, isAbleToOperate }) {
 
   group.appendChild(header);
 
-  // Tabs container
   const tabsContainer = document.createElement("div");
   tabsContainer.className = "group-tabs";
   group.appendChild(tabsContainer);
 
-  // Drag & drop on group
   group.addEventListener("dragover", (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -202,16 +194,17 @@ function createGroupElement({ name, id, isAbleToOperate }) {
 // ---- Tab Row ----
 
 function createTabRow(tab) {
-  const { url, title, id, favIconUrl } = tab;
+  const { url, title, id, favIconUrl, description, created_at } = tab;
 
   const row = document.createElement("div");
   row.className = "tab-row";
   row.setAttribute("draggable", "true");
   row.dataset.tabId = id;
   row.dataset.tabUrl = url;
+  row.dataset.tabDescription = description || "";
+  row.dataset.createdAt = created_at || Date.now();
   if (favIconUrl) row.dataset.tabFavicon = favIconUrl;
 
-  // Favicon
   const favicon = document.createElement("img");
   favicon.className = "tab-favicon";
   favicon.src = getFaviconUrl(url, favIconUrl);
@@ -220,7 +213,6 @@ function createTabRow(tab) {
   };
   row.appendChild(favicon);
 
-  // Info
   const info = document.createElement("div");
   info.className = "tab-info";
 
@@ -229,16 +221,32 @@ function createTabRow(tab) {
   titleSpan.textContent = title;
   info.appendChild(titleSpan);
 
+  if (description) {
+    const descSpan = document.createElement("span");
+    descSpan.className = "tab-description";
+    descSpan.textContent = description;
+    info.appendChild(descSpan);
+  }
+
+  const metaLine = document.createElement("div");
+  metaLine.className = "tab-meta";
+
   try {
     const urlSpan = document.createElement("span");
     urlSpan.className = "tab-url";
     urlSpan.textContent = new URL(url).hostname;
-    info.appendChild(urlSpan);
+    metaLine.appendChild(urlSpan);
   } catch (_) {}
 
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "tab-time";
+  const date = new Date(parseInt(row.dataset.createdAt));
+  timeSpan.textContent = date.toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  metaLine.appendChild(timeSpan);
+
+  info.appendChild(metaLine);
   row.appendChild(info);
 
-  // Close button
   const closeBtn = document.createElement("button");
   closeBtn.className = "tab-close";
   closeBtn.innerHTML = "&#10005;";
@@ -256,7 +264,6 @@ function createTabRow(tab) {
   });
   row.appendChild(closeBtn);
 
-  // Click to open
   row.addEventListener("click", (e) => {
     if (e.target.closest(".tab-close")) return;
     const groupEl = row.closest(".group");
@@ -270,7 +277,6 @@ function createTabRow(tab) {
     updateGlobalEmptyState();
   });
 
-  // Drag events
   row.addEventListener("dragstart", (e) => {
     e.dataTransfer.setData("tabId", id);
     e.dataTransfer.effectAllowed = "move";
@@ -286,7 +292,6 @@ function createTabRow(tab) {
     });
   });
 
-  // Drop position indicator
   row.addEventListener("dragover", (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -318,7 +323,6 @@ function createTabRow(tab) {
       row.parentElement.insertBefore(draggingEl, row.nextSibling);
     }
 
-    const oldGroup = groupContainer.querySelector(".group:not(.group):has(.tab-row)");
     document.querySelectorAll(".group").forEach((g) => {
       if (g.querySelectorAll(".tab-row").length === 0) {
         g.remove();
@@ -367,6 +371,8 @@ function saveCurrentUIStateToStorage() {
         title: row.querySelector(".tab-title")?.textContent || "",
         url: row.dataset.tabUrl,
         favIconUrl: row.dataset.tabFavicon || "",
+        description: row.dataset.tabDescription || "",
+        created_at: parseInt(row.dataset.createdAt) || Date.now(),
       });
     });
 
@@ -432,7 +438,6 @@ groupInput.addEventListener("keydown", (e) => {
   }
 });
 
-// Collapse current tab
 addCurrentBtn.addEventListener("click", () => {
   chrome.tabs.query({ currentWindow: true }, (allTabs) => {
     const activeTab = allTabs.find((tab) => tab.active);
@@ -449,7 +454,8 @@ addCurrentBtn.addEventListener("click", () => {
     group.dataset.group = domain;
     group.dataset.groupId = domain;
 
-    const tabEl = createTabRow({ url, title: activeTab.title || url, id, favIconUrl });
+    const reason = saveReasonInput ? saveReasonInput.value.trim() : "";
+    const tabEl = createTabRow({ url, title: activeTab.title || url, id, favIconUrl, description: reason, created_at: Date.now() });
     group.querySelector(".group-tabs").appendChild(tabEl);
     updateGroupCount(group);
     if (!group.parentElement) {
@@ -458,6 +464,7 @@ addCurrentBtn.addEventListener("click", () => {
 
     showEmptyState(false);
     saveCurrentUIStateToStorage();
+    if (saveReasonInput) saveReasonInput.value = "";
 
     let adjacentTab = null;
     if (index > 0) {
@@ -478,7 +485,6 @@ addCurrentBtn.addEventListener("click", () => {
   });
 });
 
-// Search
 searchInput.addEventListener("keydown", (e) => {
   if (e.code === "Enter") {
     const searchWords = e.target.value.trim();
@@ -502,7 +508,6 @@ searchClear.addEventListener("click", () => {
   searchInput.focus();
 });
 
-// Init
 window.addEventListener("DOMContentLoaded", () => {
   chrome.storage.local.get(["groups"], (result) => {
     const groups = result.groups || [];
