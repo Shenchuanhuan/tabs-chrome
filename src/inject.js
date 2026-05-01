@@ -41,6 +41,11 @@
     button.style.backgroundColor = '#6366f1';
   });
 
+  // Disable right-click menu
+  button.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+  });
+
   // Create iframe container
   const iframe = document.createElement('iframe');
   iframe.id = 'tabs-home-panel';
