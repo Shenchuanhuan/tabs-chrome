@@ -3,7 +3,14 @@
   window.hasTabsHomeInjected = true;
 
   const iconUrl = chrome.runtime.getURL('assets/icons/favicon-32x32.png');
-  const panelUrl = chrome.runtime.getURL('html/sidepanel.html');
+  let panelUrl = chrome.runtime.getURL('html/sidepanel.html');
+
+  // Detect blank page or new tab override
+  const isBlankPage = window.location.href === 'about:blank' || 
+                      window.location.protocol === 'chrome-extension:';
+  if (isBlankPage) {
+    panelUrl += '?mode=blank';
+  }
 
   // Create floating button
   const button = document.createElement('div');
@@ -162,6 +169,18 @@
     if (event.data === 'close-tabs-home-panel') {
       isOpen = false;
       iframe.style.right = '-400px';
+    }
+  });
+
+  // Listen for toggle message from background script (toolbar icon click)
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request.action === "toggle-tabs-home-panel") {
+      isOpen = !isOpen;
+      if (isOpen) {
+        iframe.style.right = '0';
+      } else {
+        iframe.style.right = '-400px';
+      }
     }
   });
 })();

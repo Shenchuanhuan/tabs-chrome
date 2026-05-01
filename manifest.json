@@ -21,11 +21,12 @@
   "background": {
     "service_worker": "src/background.js"
   },
-  "permissions": ["storage", "activeTab", "tabs"],
+  "permissions": ["storage", "activeTab", "tabs", "sidePanel"],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/inject.js"]
+      "js": ["src/inject.js"],
+      "match_about_blank": true
     }
   ],
   "web_accessible_resources": [

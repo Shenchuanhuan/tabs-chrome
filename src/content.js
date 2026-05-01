@@ -283,12 +283,36 @@ searchClear.addEventListener("click", () => {
   searchInput.focus();
 });
 
+function updateActionBarVisibility() {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const activeTab = tabs[0];
+    const actionBar = document.querySelector('.action-bar');
+    if (!actionBar) return;
+
+    if (activeTab && (
+      activeTab.url.startsWith('chrome://') || 
+      activeTab.url.startsWith('chrome-extension://') ||
+      activeTab.url === 'about:blank'
+    )) {
+      actionBar.style.display = 'none';
+    } else {
+      actionBar.style.display = 'flex';
+    }
+  });
+}
+
 window.addEventListener("DOMContentLoaded", () => {
+  updateActionBarVisibility();
+
   chrome.storage.local.get(["tabs"], (result) => {
     const tabs = result.tabs || [];
     renderElements(tabs);
   });
 });
+
+// Update visibility when switching tabs or updating tabs
+chrome.tabs.onActivated.addListener(updateActionBarVisibility);
+chrome.tabs.onUpdated.addListener(updateActionBarVisibility);
 
 // Sync data across multiple open tabs/pages
 chrome.storage.onChanged.addListener((changes, area) => {
