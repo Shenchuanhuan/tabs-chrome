@@ -192,7 +192,6 @@ function createGroupElement({ name, id, isAbleToOperate }) {
 }
 
 // ---- Tab Row ----
-
 function createTabRow(tab) {
   const { url, title, id, favIconUrl, description, created_at } = tab;
 
@@ -205,16 +204,10 @@ function createTabRow(tab) {
   row.dataset.createdAt = created_at || Date.now();
   if (favIconUrl) row.dataset.tabFavicon = favIconUrl;
 
-  const favicon = document.createElement("img");
-  favicon.className = "tab-favicon";
-  favicon.src = getFaviconUrl(url, favIconUrl);
-  favicon.onerror = function () {
-    this.style.display = "none";
-  };
-  row.appendChild(favicon);
-
+  // Info
   const info = document.createElement("div");
   info.className = "tab-info";
+
 
   const titleSpan = document.createElement("span");
   titleSpan.className = "tab-title";
