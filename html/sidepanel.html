@@ -1,28 +1,55 @@
 <html>
-    <head>
-        <meta charset="UTF-8" />
-        <title>Tab Grouper</title>
-        <link rel="stylesheet" href="../dist/style.css" />
-        <!-- <script src="../lib/tailwindcss.3.14.7.css"></script> -->
-    </head>
-    <body>
-        <!-- <button id="createGroupBtn">Create Group</button> -->
-        <div class="flex">
-            <button id="addCurrent" class="border-1 p-1 rounded-sm">
-                收起当前页
-            </button>
-            <input
-                id="keywordSearch"
-                class="ml-2 border-1 pl-2 pr-2"
-                type="text"
-                placeholder="Search key word"
-            />
-        </div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Tab Grouper</title>
+    <link rel="stylesheet" href="../dist/style.css" />
+  </head>
+  <body class="m-0 p-0 bg-gray-50">
+    <div class="top-bar flex items-center gap-2 px-3 py-2.5 border-b bg-white shadow-sm sticky top-0 z-10">
+      <button id="closePanel" class="p-1.5 rounded-md hover:bg-gray-100 transition text-gray-400 mr-1" title="关闭面板">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button id="addCurrent" class="btn-collapse flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition">
+        <svg class="icon-sm" viewBox="0 0 16 16" fill="none">
+          <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        收起当前页
+      </button>
+      <div class="search-wrapper flex items-center flex-1 relative">
+        <svg class="search-icon absolute left-2.5 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <circle cx="7" cy="7" r="5.5" stroke="#9ca3af" stroke-width="1.5"/>
+          <path d="M11 11l3.5 3.5" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <input
+          id="keywordSearch"
+          class="flex-1 rounded-md text-sm pl-8 pr-8 py-1.5 border transition outline-none"
+          type="text"
+          placeholder="搜索标签页..."
+        />
+        <button id="searchClear" class="search-clear absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hidden">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
 
-        <!-- <button id="addOthesBtn">Add Others</button> -->
-        <input id="groupInput" type="text" placeholder="Enter group name" />
-        <div id="groupContainer"></div>
-        <div id="tooltip" class="tooltip hidden"></div>
-        <script src="../src/content.js"></script>
-    </body>
+    <input id="groupInput" type="text" placeholder="Enter group name" />
+    <div id="groupContainer" class="px-3 py-3">
+      <div id="emptyState" class="empty-state flex flex-col items-center justify-center text-center py-12">
+        <svg class="empty-icon mb-3" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1.2">
+          <path d="M4 19.5A2.5 2.5 0 016.5 17H20" stroke-linecap="round"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+          <line x1="8" y1="7" x2="16" y2="7" stroke-linecap="round"/>
+          <line x1="8" y1="11" x2="16" y2="11" stroke-linecap="round"/>
+        </svg>
+        <p class="text-sm font-medium text-gray-400 m-0">暂无保存的标签页</p>
+        <p class="text-xs text-gray-300 mt-1 m-0">点击上方「收起当前页」开始收藏</p>
+      </div>
+    </div>
+    <div id="tooltip" class="tooltip hidden"></div>
+    <script src="../src/content.js"></script>
+  </body>
 </html>

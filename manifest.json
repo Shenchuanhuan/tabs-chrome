@@ -4,24 +4,34 @@
   "version": "1.0",
   "description": "Chrome tabs collection",
   "icons": {
-    "128": "assets/icons/icon.png"
+    "16": "assets/icons/favicon-16x16.png",
+    "32": "assets/icons/favicon-32x32.png",
+    "48": "assets/icons/favicon-32x32.png",
+    "128": "assets/icons/android-chrome-192x192.png"
   },
   "action": {
-    "default_title": "Click to open sidepanel",
-    "default_icon": "assets/icons/icon.png"
+    "default_title": "Tabs Home",
+    "default_icon": {
+      "16": "assets/icons/favicon-16x16.png",
+      "32": "assets/icons/favicon-32x32.png",
+      "48": "assets/icons/favicon-32x32.png",
+      "128": "assets/icons/android-chrome-192x192.png"
+    }
   },
   "background": {
     "service_worker": "src/background.js"
   },
-  "permissions": ["storage", "scripting", "activeTab", "sidePanel", "tabs"],
-  "commands": {
-    "open-side-panel": {
-      "suggested_key": {
-        "default": "Ctrl+B",
-        "mac": "Ctrl+B",
-        "windows": "Ctrl+B"
-      },
-      "description": "Open side panel"
+  "permissions": ["storage", "activeTab", "tabs"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/inject.js"]
     }
-  }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["html/sidepanel.html", "src/content.js", "dist/style.css", "assets/icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
