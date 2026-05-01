@@ -66,56 +66,57 @@
   let startX, startY;
   let initialRight, initialBottom;
   let originalUserSelect = '';
+  let dragOverlay = null;
 
   button.addEventListener('mousedown', (e) => {
-    e.preventDefault(); // Prevent text selection and other defaults
+    e.preventDefault();
     isDragging = false;
     startX = e.clientX;
     startY = e.clientY;
     
-    // Get current computed style for positioning
     const style = window.getComputedStyle(button);
     initialRight = parseInt(style.right);
     initialBottom = parseInt(style.bottom);
 
-    // Disable text selection on body during drag
     originalUserSelect = document.body.style.userSelect || '';
     document.body.style.userSelect = 'none';
 
     const onMouseMove = (moveEvent) => {
-      moveEvent.preventDefault(); // Prevent scrolling
+      moveEvent.preventDefault();
       const deltaX = startX - moveEvent.clientX;
       const deltaY = startY - moveEvent.clientY;
       
-      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+      if (!isDragging && (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)) {
         isDragging = true;
+        
+        if (!dragOverlay) {
+          dragOverlay = document.createElement('div');
+          dragOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 2147483646;
+            background: transparent;
+            cursor: move;
+          `;
+          document.body.appendChild(dragOverlay);
+        }
       }
 
       if (isDragging) {
         let newRight = initialRight + deltaX;
         let newBottom = initialBottom + deltaY;
 
-        // Boundaries
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-        const buttonSize = 48; // width and height
+        const buttonSize = 48;
 
-        // Top constraint: top >= 0 => bottom <= viewportHeight - buttonSize
-        if (newBottom > viewportHeight - buttonSize) {
-          newBottom = viewportHeight - buttonSize;
-        }
-        // Bottom constraint
-        if (newBottom < 0) {
-          newBottom = 0;
-        }
-        // Right constraint
-        if (newRight < 0) {
-          newRight = 0;
-        }
-        // Left constraint: right <= viewportWidth - buttonSize
-        if (newRight > viewportWidth - buttonSize) {
-          newRight = viewportWidth - buttonSize;
-        }
+        if (newBottom > viewportHeight - buttonSize) newBottom = viewportHeight - buttonSize;
+        if (newBottom < 0) newBottom = 0;
+        if (newRight < 0) newRight = 0;
+        if (newRight > viewportWidth - buttonSize) newRight = viewportWidth - buttonSize;
 
         button.style.right = newRight + 'px';
         button.style.bottom = newBottom + 'px';
@@ -125,6 +126,10 @@
     };
 
     const onMouseUp = () => {
+      if (dragOverlay) {
+        dragOverlay.remove();
+        dragOverlay = null;
+      }
       document.body.style.userSelect = originalUserSelect;
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
@@ -148,7 +153,6 @@
     }
   });
 
-  // Listen for messages from the iframe if needed
   window.addEventListener('message', (event) => {
     if (event.data === 'close-tabs-home-panel') {
       isOpen = false;
