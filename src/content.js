@@ -12,7 +12,10 @@ let currentSearchWords = "";
 
 if (closePanelBtn) {
   closePanelBtn.addEventListener("click", () => {
-    window.parent.postMessage("close-tabs-home-panel", "*");
+    if (window.parent !== window) {
+      // In injected iframe
+      window.parent.postMessage("close-tabs-home-panel", "*");
+    }
   });
 }
 
@@ -220,7 +223,7 @@ async function updateTabsBySearch(keyword) {
 // ---- Event Handlers ----
 
 addCurrentBtn.addEventListener("click", () => {
-  chrome.tabs.query({ currentWindow: true }, (allTabs) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (allTabs) => {
     const activeTab = allTabs.find((tab) => tab.active);
     if (!activeTab) return;
     const { url, index, id, favIconUrl } = activeTab;
@@ -289,14 +292,18 @@ function updateActionBarVisibility() {
     const actionBar = document.querySelector('.action-bar');
     if (!actionBar) return;
 
-    if (activeTab && (
+    const isRestricted = activeTab && (
       activeTab.url.startsWith('chrome://') || 
       activeTab.url.startsWith('chrome-extension://') ||
       activeTab.url === 'about:blank'
-    )) {
+    );
+
+    if (isRestricted) {
       actionBar.style.display = 'none';
+      if (closePanelBtn) closePanelBtn.style.display = 'none';
     } else {
       actionBar.style.display = 'flex';
+      if (closePanelBtn) closePanelBtn.style.display = 'block';
     }
   });
 }
