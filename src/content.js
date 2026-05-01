@@ -289,3 +289,13 @@ window.addEventListener("DOMContentLoaded", () => {
     renderElements(tabs);
   });
 });
+
+// Sync data across multiple open tabs/pages
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.tabs) {
+    // Only re-render if the search is empty to avoid interrupting user search
+    if (!currentSearchWords) {
+      renderElements(changes.tabs.newValue || []);
+    }
+  }
+});
