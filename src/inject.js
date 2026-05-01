@@ -27,6 +27,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    user-select: none;
+    touch-action: none;
   `;
 
   button.addEventListener('mouseenter', () => {
@@ -63,8 +65,10 @@
   let isDragging = false;
   let startX, startY;
   let initialRight, initialBottom;
+  let originalUserSelect = '';
 
   button.addEventListener('mousedown', (e) => {
+    e.preventDefault(); // Prevent text selection and other defaults
     isDragging = false;
     startX = e.clientX;
     startY = e.clientY;
@@ -74,7 +78,12 @@
     initialRight = parseInt(style.right);
     initialBottom = parseInt(style.bottom);
 
+    // Disable text selection on body during drag
+    originalUserSelect = document.body.style.userSelect || '';
+    document.body.style.userSelect = 'none';
+
     const onMouseMove = (moveEvent) => {
+      moveEvent.preventDefault(); // Prevent scrolling
       const deltaX = startX - moveEvent.clientX;
       const deltaY = startY - moveEvent.clientY;
       
@@ -116,6 +125,7 @@
     };
 
     const onMouseUp = () => {
+      document.body.style.userSelect = originalUserSelect;
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
