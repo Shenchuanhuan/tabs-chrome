@@ -74,11 +74,27 @@ function createTabRow(tab) {
   const info = document.createElement("div");
   info.className = "tab-info";
 
+  // Title Row (Favicon + Title)
+  const titleRow = document.createElement("div");
+  titleRow.className = "tab-title-row";
+
+  // Favicon
+  const favicon = document.createElement("img");
+  favicon.className = "tab-favicon";
+  favicon.src = getFaviconUrl(url, favIconUrl);
+  favicon.onerror = function () {
+    this.style.display = "none";
+  };
+  titleRow.appendChild(favicon);
+
   const titleSpan = document.createElement("span");
   titleSpan.className = "tab-title";
   titleSpan.textContent = title;
-  info.appendChild(titleSpan);
+  titleRow.appendChild(titleSpan);
 
+  info.appendChild(titleRow);
+
+  // Description (if exists)
   if (description) {
     const descSpan = document.createElement("span");
     descSpan.className = "tab-description";
@@ -223,7 +239,7 @@ async function updateTabsBySearch(keyword) {
 // ---- Event Handlers ----
 
 addCurrentBtn.addEventListener("click", () => {
-  chrome.tabs.query({ active: true, currentWindow: true }, (allTabs) => {
+  chrome.tabs.query({ currentWindow: true }, (allTabs) => {
     const activeTab = allTabs.find((tab) => tab.active);
     if (!activeTab) return;
     const { url, index, id, favIconUrl } = activeTab;
@@ -311,9 +327,30 @@ function updateActionBarVisibility() {
 window.addEventListener("DOMContentLoaded", () => {
   updateActionBarVisibility();
 
-  chrome.storage.local.get(["tabs"], (result) => {
-    const tabs = result.tabs || [];
-    renderElements(tabs);
+  chrome.storage.local.get(["tabs", "groups"], (result) => {
+    let tabs = result.tabs;
+
+    // Data Migration: If no 'tabs' but 'groups' exists, migrate them
+    if (!tabs && result.groups && result.groups.length > 0) {
+      tabs = [];
+      result.groups.forEach(group => {
+        if (group.tabs && Array.isArray(group.tabs)) {
+          group.tabs.forEach(tab => {
+            tabs.push({
+              ...tab,
+              description: tab.description || "",
+              created_at: tab.created_at || Date.now()
+            });
+          });
+        }
+      });
+      // Save migrated data
+      chrome.storage.local.set({ tabs: tabs });
+      // Optionally clean up old data
+      // chrome.storage.local.remove("groups");
+    }
+
+    renderElements(tabs || []);
   });
 });
 
