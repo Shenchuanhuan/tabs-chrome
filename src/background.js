@@ -3,14 +3,12 @@ const HomePage = "html/sidepanel.html";
 // Function to update side panel availability based on URL
 async function updateSidePanelState(tabId, url) {
   if (url && (url.startsWith('chrome://newtab') || url.startsWith('about:newtab'))) {
-    // Enable for New Tab page
     await chrome.sidePanel.setOptions({
       tabId: tabId,
       path: HomePage,
       enabled: true
     });
   } else {
-    // Disable for all other pages
     await chrome.sidePanel.setOptions({
       tabId: tabId,
       enabled: false
@@ -19,20 +17,16 @@ async function updateSidePanelState(tabId, url) {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  // Enable opening side panel when the action (icon) is clicked
-  // Note: It will ONLY open if the side panel is 'enabled' for the current tab
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error) => console.error(error));
 });
 
-// Watch for tab updates (URL changes)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'loading' || changeInfo.url) {
     updateSidePanelState(tabId, tab.url);
   }
 });
 
-// Watch for tab activation (switching between tabs)
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId);

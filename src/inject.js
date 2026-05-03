@@ -80,6 +80,15 @@
   let originalUserSelect = '';
   let dragOverlay = null;
 
+  const togglePanel = (forceState) => {
+    isOpen = forceState !== undefined ? forceState : !isOpen;
+    if (isOpen) {
+      iframe.style.right = '0';
+    } else {
+      iframe.style.right = '-400px';
+    }
+  };
+
   button.addEventListener('mousedown', (e) => {
     e.preventDefault();
     isDragging = false;
@@ -157,30 +166,19 @@
       e.stopPropagation();
       return;
     }
-    isOpen = !isOpen;
-    if (isOpen) {
-      iframe.style.right = '0';
-    } else {
-      iframe.style.right = '-400px';
-    }
+    togglePanel();
   });
 
   window.addEventListener('message', (event) => {
     if (event.data === 'close-tabs-home-panel') {
-      isOpen = false;
-      iframe.style.right = '-400px';
+      togglePanel(false);
     }
   });
 
   // Listen for toggle message from background script (toolbar icon click)
   chrome.runtime.onMessage.addListener((request) => {
     if (request.action === "toggle-tabs-home-panel") {
-      isOpen = !isOpen;
-      if (isOpen) {
-        iframe.style.right = '0';
-      } else {
-        iframe.style.right = '-400px';
-      }
+      togglePanel();
     }
   });
 })();
