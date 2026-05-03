@@ -1,5 +1,4 @@
 const addCurrentBtn = document.getElementById("addCurrent");
-const closePanelBtn = document.getElementById("closePanel");
 const saveReasonInput = document.getElementById("saveReason");
 
 const tabContainer = document.getElementById("groupContainer");
@@ -9,15 +8,6 @@ const emptyState = document.getElementById("emptyState");
 
 let currentDraggingTabEl = null;
 let currentSearchWords = "";
-
-if (closePanelBtn) {
-  closePanelBtn.addEventListener("click", () => {
-    if (window.parent !== window) {
-      // In injected iframe
-      window.parent.postMessage("close-tabs-home-panel", "*");
-    }
-  });
-}
 
 function getFaviconUrl(url, favIconUrl) {
   if (favIconUrl) return favIconUrl;
@@ -316,10 +306,8 @@ function updateActionBarVisibility() {
 
     if (isRestricted) {
       actionBar.style.display = 'none';
-      if (closePanelBtn) closePanelBtn.style.display = 'none';
     } else {
       actionBar.style.display = 'flex';
-      if (closePanelBtn) closePanelBtn.style.display = 'block';
     }
   });
 }
@@ -365,5 +353,22 @@ chrome.storage.onChanged.addListener((changes, area) => {
     if (!currentSearchWords) {
       renderElements(changes.tabs.newValue || []);
     }
+  }
+});
+
+// ---- Side Panel State Management ----
+
+// Establish connection with background script
+const port = chrome.runtime.connect({ name: 'sidepanel' });
+
+// Report that the side panel has opened and provide windowId
+chrome.windows.getCurrent((win) => {
+  port.postMessage({ action: "init", windowId: win.id });
+});
+
+// Listen for messages from background script via port
+port.onMessage.addListener((message) => {
+  if (message.action === "close_side_panel") {
+    window.close();
   }
 });

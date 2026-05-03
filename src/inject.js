@@ -3,14 +3,6 @@
   window.hasTabsHomeInjected = true;
 
   const iconUrl = chrome.runtime.getURL('assets/icons/favicon-32x32.png');
-  let panelUrl = chrome.runtime.getURL('html/sidepanel.html');
-
-  // Detect blank page or new tab override
-  const isBlankPage = window.location.href === 'about:blank' || 
-                      window.location.protocol === 'chrome-extension:';
-  if (isBlankPage) {
-    panelUrl += '?mode=blank';
-  }
 
   // Create floating button
   const button = document.createElement('div');
@@ -53,40 +45,16 @@
     e.preventDefault();
   });
 
-  // Create iframe container
-  const iframe = document.createElement('iframe');
-  iframe.id = 'tabs-home-panel';
-  iframe.src = panelUrl;
-  iframe.style.cssText = `
-    position: fixed;
-    top: 0;
-    right: -400px;
-    width: 380px;
-    height: 100vh;
-    border: none;
-    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
-    z-index: 2147483646;
-    transition: right 0.3s ease-in-out;
-    background: white;
-  `;
-
   document.body.appendChild(button);
-  document.body.appendChild(iframe);
 
-  let isOpen = false;
   let isDragging = false;
   let startX, startY;
   let initialRight, initialBottom;
   let originalUserSelect = '';
   let dragOverlay = null;
 
-  const togglePanel = (forceState) => {
-    isOpen = forceState !== undefined ? forceState : !isOpen;
-    if (isOpen) {
-      iframe.style.right = '0';
-    } else {
-      iframe.style.right = '-400px';
-    }
+  const openSidePanel = () => {
+    chrome.runtime.sendMessage({ action: "toggle_side_panel" });
   };
 
   button.addEventListener('mousedown', (e) => {
@@ -166,19 +134,6 @@
       e.stopPropagation();
       return;
     }
-    togglePanel();
-  });
-
-  window.addEventListener('message', (event) => {
-    if (event.data === 'close-tabs-home-panel') {
-      togglePanel(false);
-    }
-  });
-
-  // Listen for toggle message from background script (toolbar icon click)
-  chrome.runtime.onMessage.addListener((request) => {
-    if (request.action === "toggle-tabs-home-panel") {
-      togglePanel();
-    }
+    openSidePanel();
   });
 })();

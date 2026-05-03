@@ -22,6 +22,9 @@
     "service_worker": "src/background.js"
   },
   "permissions": ["storage", "activeTab", "tabs", "sidePanel"],
+  "side_panel": {
+    "default_path": "html/sidepanel.html"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
