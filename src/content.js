@@ -3,6 +3,15 @@
 //  Dynamically loads view fragments from html/views/ on demand
 // ============================================================
 
+// ---- Extension context guard ----
+function isExtensionAlive() {
+  try {
+    return !!(chrome.runtime && chrome.runtime.id);
+  } catch (_) {
+    return false;
+  }
+}
+
 // ---- Shared State ----
 let currentDraggingTabEl = null;
 let currentSearchWords = "";
@@ -70,55 +79,48 @@ function createTabRow(tab) {
   row.dataset.isFavorite = isFavorite ? "true" : "false";
   if (favIconUrl) row.dataset.tabFavicon = favIconUrl;
 
-  // Favicon
+  // Top block (favicon + text)
+  const header = document.createElement("div");
+  header.className = "tab-top";
+
   const favicon = document.createElement("img");
   favicon.className = "tab-favicon";
   favicon.src = getFaviconUrl(url, favIconUrl);
   favicon.onerror = function () {
     this.style.display = "none";
   };
-  row.appendChild(favicon);
+  header.appendChild(favicon);
 
-  // Info block
-  const info = document.createElement("div");
-  info.className = "tab-info";
+  const text = document.createElement("div");
+  text.className = "tab-text";
 
   const titleSpan = document.createElement("span");
   titleSpan.className = "tab-title";
   titleSpan.textContent = title;
-  info.appendChild(titleSpan);
+  text.appendChild(titleSpan);
 
+  // Description (inside tab-text)
   if (description) {
     const descSpan = document.createElement("span");
     descSpan.className = "tab-description";
     descSpan.textContent = description;
-    info.appendChild(descSpan);
+    text.appendChild(descSpan);
   }
 
-  const metaLine = document.createElement("div");
-  metaLine.className = "tab-meta";
+  header.appendChild(text);
+
+  row.appendChild(header);
+
+  // Bottom block (url + actions)
+  const bottom = document.createElement("div");
+  bottom.className = "tab-bottom";
 
   try {
     const urlSpan = document.createElement("span");
     urlSpan.className = "tab-url";
     urlSpan.textContent = new URL(url).hostname;
-    metaLine.appendChild(urlSpan);
+    bottom.appendChild(urlSpan);
   } catch (_) {}
-
-  const timeSpan = document.createElement("span");
-  timeSpan.className = "tab-time";
-  const date = new Date(parseInt(row.dataset.createdAt));
-  timeSpan.textContent = date.toLocaleString("zh-CN", {
-    hour12: false,
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  metaLine.appendChild(timeSpan);
-
-  info.appendChild(metaLine);
-  row.appendChild(info);
 
   // Favorite button
   const favBtn = document.createElement("button");
@@ -144,8 +146,6 @@ function createTabRow(tab) {
       chrome.storage.local.set({ tabs: updatedTabs });
     });
   });
-  row.appendChild(favBtn);
-
   // Close / remove button
   const closeBtn = document.createElement("button");
   closeBtn.className = "tab-close";
@@ -163,7 +163,13 @@ function createTabRow(tab) {
     row.remove();
     updateGlobalEmptyState();
   });
-  row.appendChild(closeBtn);
+  // Action buttons: close left, fav right
+  const actions = document.createElement("div");
+  actions.className = "tab-actions";
+  actions.appendChild(closeBtn);
+  actions.appendChild(favBtn);
+  bottom.appendChild(actions);
+  row.appendChild(bottom);
 
   // Click to open
   row.addEventListener("click", (e) => {
@@ -410,8 +416,14 @@ function initListView() {
 
   // Action bar visibility (chrome:// etc.)
   updateActionBarVisibility();
-  chrome.tabs.onActivated.addListener(updateActionBarVisibility);
-  chrome.tabs.onUpdated.addListener(updateActionBarVisibility);
+  chrome.tabs.onActivated.addListener(() => {
+    if (!isExtensionAlive()) return;
+    updateActionBarVisibility();
+  });
+  chrome.tabs.onUpdated.addListener(() => {
+    if (!isExtensionAlive()) return;
+    updateActionBarVisibility();
+  });
 
   viewCache.viewList.initialized = true;
 }
@@ -599,6 +611,7 @@ function init() {
 
   // Listen for storage changes from other contexts (e.g. inject.js via background)
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (!isExtensionAlive()) return;
     if (area === "local" && changes.tabs && !currentSearchWords) {
       const viewId = currentActiveView;
       // Only re-render if the target view is already initialized
@@ -614,12 +627,26 @@ function init() {
   });
 
   // --- Side panel lifecycle (connect to background) ---
-  const port = chrome.runtime.connect({ name: "sidepanel" });
-  chrome.windows.getCurrent((win) =>
-    port.postMessage({ action: "init", windowId: win.id }),
-  );
+  let port = null;
+  try {
+    port = chrome.runtime.connect({ name: "sidepanel" });
+  } catch (_) {
+    // Extension context invalidated, side panel will close shortly
+    return;
+  }
+
+  chrome.windows.getCurrent((win) => {
+    if (chrome.runtime.lastError || !win) return;
+    try {
+      port.postMessage({ action: "init", windowId: win.id });
+    } catch (_) {}
+  });
   port.onMessage.addListener((m) => {
     if (m.action === "close_side_panel") window.close();
+  });
+  port.onDisconnect.addListener(() => {
+    // Extension was reloaded or unloaded — close the side panel
+    window.close();
   });
   chrome.runtime.onMessage.addListener((m) => {
     if (m.action === "close_side_panel") window.close();
