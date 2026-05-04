@@ -1,58 +1,90 @@
+<!doctype html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Tab Grouper</title>
-    <link rel="stylesheet" href="../dist/style.css" />
-  </head>
-  <body class="m-0 p-0 bg-gray-50">
-    <div class="top-bar flex items-center gap-2 px-3 py-2.5 border-b bg-white shadow-sm sticky top-0 z-10">
-      <div class="search-wrapper flex items-center flex-1 relative">
-        <svg class="search-icon absolute left-2.5 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <circle cx="7" cy="7" r="5.5" stroke="#9ca3af" stroke-width="1.5"/>
-          <path d="M11 11l3.5 3.5" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        <input
-          id="keywordSearch"
-          class="flex-1 rounded-md text-sm pl-8 pr-8 py-1.5 border transition outline-none"
-          type="text"
-          placeholder="搜索标签页..."
-        />
-        <button id="searchClear" class="search-clear absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hidden">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M4 4l8 8M12 4l-8 8" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </div>
-    </div>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Tab Grouper</title>
+        <link rel="stylesheet" href="../dist/style.css" />
+    </head>
+    <body class="m-0 p-0 bg-gray-50 flex overflow-hidden">
+        <!-- Main Content Area — views are loaded here dynamically -->
+        <div
+            id="mainContent"
+            class="flex-1 flex flex-col min-w-0 h-full overflow-hidden"
+        >
+            <!-- View containers will be injected by content.js -->
+        </div>
 
-    <div id="groupContainer" class="px-3 py-3 space-y-2 flex-1 overflow-y-auto">
-      <div id="emptyState" class="empty-state flex flex-col items-center justify-center text-center py-12">
-        <svg class="empty-icon mb-3" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1.2">
-          <path d="M4 19.5A2.5 2.5 0 016.5 17H20" stroke-linecap="round"/>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
-          <line x1="8" y1="7" x2="16" y2="7" stroke-linecap="round"/>
-          <line x1="8" y1="11" x2="16" y2="11" stroke-linecap="round"/>
-        </svg>
-        <p class="text-sm font-medium text-gray-400 m-0">暂无保存的标签页</p>
-        <p class="text-xs text-gray-300 mt-1 m-0">点击下方「收起当前页」开始收藏</p>
-      </div>
-    </div>
+        <!-- Vertical Navigation Menu (right side) -->
+        <nav
+            class="side-nav w-12 flex flex-col items-center py-4 bg-white gap-6 shrink-0 h-full"
+        >
+            <button class="nav-item active" data-view="viewList" title="列表">
+                <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+            </button>
+            <button class="nav-item" data-view="viewFavorites" title="收藏">
+                <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <polygon
+                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                    ></polygon>
+                </svg>
+            </button>
+            <button class="nav-item" data-view="viewDownloads" title="下载">
+                <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+            </button>
+            <button
+                class="nav-item mt-auto"
+                data-view="viewSettings"
+                title="设置"
+            >
+                <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                    ></path>
+                </svg>
+            </button>
+        </nav>
 
-    <div class="action-bar flex items-center gap-2 px-3 py-3 bg-white border-t mt-auto shadow-[0_-4px_12px_rgba(0,0,0,0.05)] sticky bottom-0">
-      <button id="addCurrent" class="btn-collapse flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition shrink-0">
-        <svg class="icon-sm" viewBox="0 0 16 16" fill="none">
-          <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        收起当前页
-      </button>
-      <input
-        id="saveReason"
-        class="flex-1 rounded-md text-sm px-3 py-1.5 border border-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
-        type="text"
-        placeholder="请填写存储原因"
-      />
-    </div>
-    <div id="tooltip" class="tooltip hidden"></div>
-    <script src="../src/content.js"></script>
-  </body>
+        <div id="tooltip" class="tooltip hidden"></div>
+        <script src="../src/content.js"></script>
+    </body>
 </html>

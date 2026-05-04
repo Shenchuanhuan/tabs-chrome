@@ -1,13 +1,36 @@
-const addCurrentBtn = document.getElementById("addCurrent");
-const saveReasonInput = document.getElementById("saveReason");
+// ============================================================
+//  Tabs Home — Side Panel Content Script
+//  Dynamically loads view fragments from html/views/ on demand
+// ============================================================
 
-const tabContainer = document.getElementById("groupContainer");
-const searchInput = document.getElementById("keywordSearch");
-const searchClear = document.getElementById("searchClear");
-const emptyState = document.getElementById("emptyState");
-
+// ---- Shared State ----
 let currentDraggingTabEl = null;
 let currentSearchWords = "";
+let currentActiveView = "viewList";
+
+// ---- View Manager ----
+// Cache: viewId → { html: string, container: HTMLElement, initialized: boolean }
+const viewCache = {};
+
+// Per-view DOM element references, populated after each view initializes.
+const $ = {
+  viewList: {},
+  viewFavorites: {},
+  viewDownloads: {},
+  viewSettings: {},
+};
+
+// Map viewId → path to HTML fragment
+const VIEW_PATH = {
+  viewList: "views/list.html",
+  viewFavorites: "views/favorites.html",
+  viewDownloads: "views/downloads.html",
+  viewSettings: "views/settings.html",
+};
+
+// ============================================================
+//  Shared Utilities
+// ============================================================
 
 function getFaviconUrl(url, favIconUrl) {
   if (favIconUrl) return favIconUrl;
@@ -20,36 +43,22 @@ function getFaviconUrl(url, favIconUrl) {
 }
 
 function showEmptyState(show) {
-  if (show) {
-    emptyState.classList.remove("hidden");
-  } else {
-    emptyState.classList.add("hidden");
-  }
+  const emptyState = $.viewList.emptyState;
+  if (!emptyState) return;
+  emptyState.classList.toggle("hidden", !show);
 }
 
-// ---- Render ----
-
-function renderElements(tabs) {
-  tabContainer.querySelectorAll(".tab-row").forEach((el) => el.remove());
-
-  if (!tabs || tabs.length === 0) {
-    showEmptyState(true);
-    return;
-  }
-  showEmptyState(false);
-
-  // Sort by created_at descending (newest first)
-  const sortedTabs = [...tabs].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-
-  sortedTabs.forEach((tab) => {
-    const tabEl = createTabRow(tab);
-    tabContainer.appendChild(tabEl);
-  });
+function updateGlobalEmptyState() {
+  const tabContainer = $.viewList.tabContainer;
+  if (!tabContainer) return;
+  const hasTabs = tabContainer.querySelectorAll(".tab-row").length > 0;
+  showEmptyState(!hasTabs);
 }
 
-// ---- Tab Row ----
+// ---- Tab Row Factory (shared across list & favorites views) ----
 function createTabRow(tab) {
-  const { url, title, id, favIconUrl, description, created_at, isFavorite } = tab;
+  const { url, title, id, favIconUrl, description, created_at, isFavorite } =
+    tab;
 
   const row = document.createElement("div");
   row.className = "tab-row";
@@ -70,7 +79,7 @@ function createTabRow(tab) {
   };
   row.appendChild(favicon);
 
-  // Info
+  // Info block
   const info = document.createElement("div");
   info.className = "tab-info";
 
@@ -79,7 +88,6 @@ function createTabRow(tab) {
   titleSpan.textContent = title;
   info.appendChild(titleSpan);
 
-  // Description (if exists)
   if (description) {
     const descSpan = document.createElement("span");
     descSpan.className = "tab-description";
@@ -100,16 +108,22 @@ function createTabRow(tab) {
   const timeSpan = document.createElement("span");
   timeSpan.className = "tab-time";
   const date = new Date(parseInt(row.dataset.createdAt));
-  timeSpan.textContent = date.toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  timeSpan.textContent = date.toLocaleString("zh-CN", {
+    hour12: false,
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   metaLine.appendChild(timeSpan);
 
   info.appendChild(metaLine);
   row.appendChild(info);
 
-  // Favorite Button
+  // Favorite button
   const favBtn = document.createElement("button");
   favBtn.className = "tab-favorite" + (isFavorite ? " is-active" : "");
-  favBtn.innerHTML = isFavorite ? "&#9733;" : "&#9734;"; // Filled vs Outline star
+  favBtn.innerHTML = isFavorite ? "&#9733;" : "&#9734;";
   favBtn.title = isFavorite ? "取消收藏" : "收藏";
   favBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -118,33 +132,58 @@ function createTabRow(tab) {
     favBtn.className = "tab-favorite" + (newFavState ? " is-active" : "");
     favBtn.innerHTML = newFavState ? "&#9733;" : "&#9734;";
     favBtn.title = newFavState ? "取消收藏" : "收藏";
-    saveCurrentUIStateToStorage();
+
+    chrome.storage.local.get(["tabs"], (result) => {
+      const allTabs = result.tabs || [];
+      const updatedTabs = allTabs.map((t) => {
+        if (t.id == id || (t.url === url && t.created_at == created_at)) {
+          return { ...t, isFavorite: newFavState };
+        }
+        return t;
+      });
+      chrome.storage.local.set({ tabs: updatedTabs });
+    });
   });
   row.appendChild(favBtn);
 
+  // Close / remove button
   const closeBtn = document.createElement("button");
   closeBtn.className = "tab-close";
   closeBtn.innerHTML = "&#10005;";
   closeBtn.title = "移除";
   closeBtn.addEventListener("click", (e) => {
     e.stopPropagation();
+    chrome.storage.local.get(["tabs"], (result) => {
+      const allTabs = result.tabs || [];
+      const updatedTabs = allTabs.filter(
+        (t) => !(t.id == id || (t.url === url && t.created_at == created_at)),
+      );
+      chrome.storage.local.set({ tabs: updatedTabs });
+    });
     row.remove();
-    saveCurrentUIStateToStorage();
     updateGlobalEmptyState();
   });
   row.appendChild(closeBtn);
 
+  // Click to open
   row.addEventListener("click", (e) => {
-    if (e.target.closest(".tab-close") || e.target.closest(".tab-favorite")) return;
+    if (e.target.closest(".tab-close") || e.target.closest(".tab-favorite"))
+      return;
     chrome.tabs.create({ url: url });
-    
     if (row.dataset.isFavorite !== "true") {
+      chrome.storage.local.get(["tabs"], (result) => {
+        const allTabs = result.tabs || [];
+        const updatedTabs = allTabs.filter(
+          (t) => !(t.id == id || (t.url === url && t.created_at == created_at)),
+        );
+        chrome.storage.local.set({ tabs: updatedTabs });
+      });
       row.remove();
-      saveCurrentUIStateToStorage();
       updateGlobalEmptyState();
     }
   });
 
+  // ---- Drag & Drop ----
   row.addEventListener("dragstart", (e) => {
     e.dataTransfer.setData("tabId", id);
     e.dataTransfer.effectAllowed = "move";
@@ -158,7 +197,6 @@ function createTabRow(tab) {
       el.classList.remove("drop-above", "drop-below");
     });
   });
-
   row.addEventListener("dragover", (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -170,19 +208,12 @@ function createTabRow(tab) {
   row.addEventListener("dragleave", () => {
     row.classList.remove("drop-above", "drop-below");
   });
-
   row.addEventListener("drop", (e) => {
     e.stopPropagation();
     e.preventDefault();
     row.classList.remove("drop-above", "drop-below");
-
-    const tabId = e.dataTransfer.getData("tabId");
-    if (!tabId) return;
-
     const draggingEl = currentDraggingTabEl;
-    currentDraggingTabEl = null;
     if (!draggingEl || draggingEl === row) return;
-
     const rect = row.getBoundingClientRect();
     const offset = e.clientY - rect.top;
     if (offset < rect.height / 2) {
@@ -190,24 +221,19 @@ function createTabRow(tab) {
     } else {
       row.parentElement.insertBefore(draggingEl, row.nextSibling);
     }
-
     saveCurrentUIStateToStorage();
-    updateGlobalEmptyState();
   });
 
   return row;
 }
 
-// ---- Storage Helpers ----
-
-function updateGlobalEmptyState() {
-  const hasTabs = tabContainer.querySelectorAll(".tab-row").length > 0;
-  showEmptyState(!hasTabs);
-}
-
+// ---- Persist DOM order → storage (for drag reorder in list view) ----
 function saveCurrentUIStateToStorage() {
+  const tabContainer = $.viewList.tabContainer;
+  if (!tabContainer) return;
+  const tabsInDOM = tabContainer.querySelectorAll(".tab-row");
   const tabs = [];
-  tabContainer.querySelectorAll(".tab-row").forEach((row) => {
+  tabsInDOM.forEach((row) => {
     tabs.push({
       id: parseInt(row.dataset.tabId),
       title: row.querySelector(".tab-title")?.textContent || "",
@@ -218,179 +244,394 @@ function saveCurrentUIStateToStorage() {
       isFavorite: row.dataset.isFavorite === "true",
     });
   });
-
-  chrome.storage.local.set({ tabs });
+  if (tabs.length > 0) {
+    chrome.storage.local.set({ tabs });
+  }
 }
 
-// ---- Search ----
+// ============================================================
+//  View Loader
+// ============================================================
+
+/**
+ * Fetch a view's HTML fragment from html/views/ and cache it.
+ * Returns the HTML string.
+ */
+async function loadViewHtml(viewId) {
+  if (viewCache[viewId] && viewCache[viewId].html) {
+    return viewCache[viewId].html;
+  }
+
+  const path = VIEW_PATH[viewId];
+  if (!path) throw new Error(`Unknown view: ${viewId}`);
+
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(`Failed to load ${path}: ${response.status}`);
+  }
+  const html = await response.text();
+
+  // Initialize cache entry
+  if (!viewCache[viewId]) {
+    viewCache[viewId] = { html: null, container: null, initialized: false };
+  }
+  viewCache[viewId].html = html;
+  return html;
+}
+
+/**
+ * Insert a view's HTML into #mainContent and create its container element.
+ */
+function injectViewContainer(viewId, html) {
+  const mainContent = document.getElementById("mainContent");
+  if (!mainContent) throw new Error("mainContent element not found");
+
+  // Parse the HTML fragment. The first element should be the view root.
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  // The view root is the first element child in the parsed body
+  const viewRoot = doc.body.firstElementChild;
+  if (!viewRoot) throw new Error(`No root element in ${viewId} fragment`);
+
+  // Ensure it has the right id and classes
+  viewRoot.id = viewId;
+  viewRoot.classList.add("view-container");
+  // All views except the active one start hidden
+  if (viewId !== currentActiveView) {
+    viewRoot.classList.remove("active");
+  } else {
+    viewRoot.classList.add("active");
+  }
+
+  mainContent.appendChild(viewRoot);
+  viewCache[viewId].container = viewRoot;
+  return viewRoot;
+}
+
+// ============================================================
+//  View Initializers
+// ============================================================
+
+// -- List View -------------------------------------------------
+function initListView() {
+  const container = viewCache.viewList.container;
+  if (!container) return;
+
+  // Cache DOM references
+  $.viewList.addCurrentBtn = container.querySelector("#addCurrent");
+  $.viewList.saveReasonInput = container.querySelector("#saveReason");
+  $.viewList.tabContainer = container.querySelector("#groupContainer");
+  $.viewList.searchInput = container.querySelector("#keywordSearch");
+  $.viewList.searchClear = container.querySelector("#searchClear");
+  $.viewList.emptyState = container.querySelector("#emptyState");
+
+  const {
+    addCurrentBtn,
+    saveReasonInput,
+    searchInput,
+    searchClear,
+    tabContainer,
+  } = $.viewList;
+
+  // "收起当前页" button
+  if (addCurrentBtn) {
+    addCurrentBtn.addEventListener("click", () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs[0];
+        if (!activeTab) return;
+        const { url, id, favIconUrl, title } = activeTab;
+        if (
+          url.startsWith("chrome://") ||
+          url.startsWith("chrome-extension://") ||
+          url === "about:blank"
+        )
+          return;
+        const reason = saveReasonInput ? saveReasonInput.value.trim() : "";
+        chrome.storage.local.get(["tabs"], (result) => {
+          const allTabs = result.tabs || [];
+          const newTab = {
+            url,
+            title: title || url,
+            id,
+            favIconUrl,
+            description: reason,
+            created_at: Date.now(),
+            isFavorite: false,
+          };
+          chrome.storage.local.set({ tabs: [newTab, ...allTabs] }, () => {
+            chrome.tabs.query({ currentWindow: true }, (allWindowTabs) => {
+              let adjacentTab = null;
+              const currentIndex = allWindowTabs.findIndex((t) => t.id === id);
+              if (currentIndex > 0)
+                adjacentTab = allWindowTabs[currentIndex - 1];
+              else if (allWindowTabs.length > 1)
+                adjacentTab = allWindowTabs[currentIndex + 1];
+              if (adjacentTab)
+                chrome.tabs.update(adjacentTab.id, { active: true }, () =>
+                  chrome.tabs.remove(id),
+                );
+              else
+                chrome.tabs.create({ url: "chrome://newtab" }, () =>
+                  chrome.tabs.remove(id),
+                );
+            });
+          });
+        });
+        if (saveReasonInput) saveReasonInput.value = "";
+      });
+    });
+  }
+
+  // Search
+  if (searchInput) {
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.code === "Enter") {
+        const sw = e.target.value.trim();
+        if (currentSearchWords !== sw) {
+          currentSearchWords = sw;
+          updateTabsBySearch(sw);
+          if (searchClear) searchClear.classList.toggle("hidden", !sw);
+        }
+      }
+    });
+  }
+  if (searchClear) {
+    searchClear.addEventListener("click", () => {
+      if (searchInput) {
+        searchInput.value = "";
+        currentSearchWords = "";
+        searchClear.classList.add("hidden");
+        updateTabsBySearch("");
+        searchInput.focus();
+      }
+    });
+  }
+
+  // Action bar visibility (chrome:// etc.)
+  updateActionBarVisibility();
+  chrome.tabs.onActivated.addListener(updateActionBarVisibility);
+  chrome.tabs.onUpdated.addListener(updateActionBarVisibility);
+
+  viewCache.viewList.initialized = true;
+}
+
+// -- Favorites View --------------------------------------------
+function initFavoritesView() {
+  const container = viewCache.viewFavorites.container;
+  if (!container) return;
+
+  $.viewFavorites.favoritesContainer = container.querySelector(
+    "#favoritesContainer",
+  );
+  viewCache.viewFavorites.initialized = true;
+}
+
+// ============================================================
+//  View Renderers
+// ============================================================
+
+function renderElements(tabs) {
+  const tabContainer = $.viewList.tabContainer;
+  if (!tabContainer) return;
+  tabContainer.querySelectorAll(".tab-row").forEach((el) => el.remove());
+
+  if (!tabs || tabs.length === 0) {
+    showEmptyState(true);
+    return;
+  }
+  showEmptyState(false);
+
+  const sortedTabs = [...tabs].sort(
+    (a, b) => (b.created_at || 0) - (a.created_at || 0),
+  );
+  sortedTabs.forEach((tab) => {
+    const tabEl = createTabRow(tab);
+    tabContainer.appendChild(tabEl);
+  });
+}
+
+function renderFavorites(tabs) {
+  const favoritesContainer = $.viewFavorites.favoritesContainer;
+  if (!favoritesContainer) return;
+  favoritesContainer.innerHTML = "";
+
+  const favoriteTabs = (tabs || []).filter((tab) => tab.isFavorite);
+
+  if (favoriteTabs.length === 0) {
+    const empty = document.createElement("div");
+    empty.className =
+      "flex flex-col items-center justify-center text-center py-12";
+    empty.innerHTML = `<p class="text-sm text-gray-400">暂无收藏内容</p>`;
+    favoritesContainer.appendChild(empty);
+    return;
+  }
+
+  const sortedTabs = [...favoriteTabs].sort(
+    (a, b) => (b.created_at || 0) - (a.created_at || 0),
+  );
+  sortedTabs.forEach((tab) => {
+    const tabEl = createTabRow(tab);
+    favoritesContainer.appendChild(tabEl);
+  });
+}
 
 async function updateTabsBySearch(keyword) {
   const { tabs } = await chrome.storage.local.get(["tabs"]);
-  let filteredTabs = [];
-
-  if (!keyword) {
-    filteredTabs = tabs || [];
-  } else {
-    filteredTabs = (tabs || []).filter(
-      (tab) => tab.title.toLowerCase().includes(keyword.toLowerCase()) ||
-              tab.url.toLowerCase().includes(keyword.toLowerCase()) ||
-              (tab.description && tab.description.toLowerCase().includes(keyword.toLowerCase()))
+  let filteredTabs = tabs || [];
+  if (keyword) {
+    const kw = keyword.toLowerCase();
+    filteredTabs = filteredTabs.filter(
+      (tab) =>
+        tab.title.toLowerCase().includes(kw) ||
+        tab.url.toLowerCase().includes(kw) ||
+        (tab.description && tab.description.toLowerCase().includes(kw)),
     );
   }
-
   renderElements(filteredTabs);
 }
-
-// ---- Event Handlers ----
-
-addCurrentBtn.addEventListener("click", () => {
-  chrome.tabs.query({ currentWindow: true }, (allTabs) => {
-    const activeTab = allTabs.find((tab) => tab.active);
-    if (!activeTab) return;
-    const { url, index, id, favIconUrl } = activeTab;
-
-    if (url.indexOf("chrome://newtab") !== -1) return;
-
-    const reason = saveReasonInput ? saveReasonInput.value.trim() : "";
-    const tabEl = createTabRow({ url, title: activeTab.title || url, id, favIconUrl, description: reason, created_at: Date.now() });
-    
-    // Prepend to top
-    if (tabContainer.firstChild) {
-      tabContainer.insertBefore(tabEl, tabContainer.firstChild);
-    } else {
-      tabContainer.appendChild(tabEl);
-    }
-
-    showEmptyState(false);
-    saveCurrentUIStateToStorage();
-    if (saveReasonInput) saveReasonInput.value = "";
-
-    let adjacentTab = null;
-    if (index > 0) {
-      adjacentTab = allTabs[index - 1];
-    } else if (allTabs.length > 1) {
-      adjacentTab = allTabs[index + 1];
-    }
-
-    if (adjacentTab) {
-      chrome.tabs.update(adjacentTab.id, { active: true }, () => {
-        chrome.tabs.remove(id);
-      });
-    } else {
-      chrome.tabs.create({ url: "chrome://newtab" }, () => {
-        chrome.tabs.remove(id);
-      });
-    }
-  });
-});
-
-searchInput.addEventListener("keydown", (e) => {
-  if (e.code === "Enter") {
-    const searchWords = e.target.value.trim();
-    if (currentSearchWords !== searchWords) {
-      currentSearchWords = searchWords;
-      updateTabsBySearch(searchWords);
-      if (searchWords) {
-        searchClear.classList.remove("hidden");
-      } else {
-        searchClear.classList.add("hidden");
-      }
-    }
-  }
-});
-
-searchClear.addEventListener("click", () => {
-  searchInput.value = "";
-  currentSearchWords = "";
-  searchClear.classList.add("hidden");
-  updateTabsBySearch("");
-  searchInput.focus();
-});
 
 function updateActionBarVisibility() {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const activeTab = tabs[0];
-    const actionBar = document.querySelector('.action-bar');
+    const container = viewCache.viewList.container;
+    if (!container) return;
+    const actionBar = container.querySelector(".action-bar");
     if (!actionBar) return;
-
-    const isRestricted = activeTab && (
-      activeTab.url.startsWith('chrome://') || 
-      activeTab.url.startsWith('chrome-extension://') ||
-      activeTab.url === 'about:blank'
-    );
-
-    if (isRestricted) {
-      actionBar.style.display = 'none';
-    } else {
-      actionBar.style.display = 'flex';
-    }
+    const isRestricted =
+      activeTab &&
+      (activeTab.url.startsWith("chrome://") ||
+        activeTab.url.startsWith("chrome-extension://") ||
+        activeTab.url === "about:blank");
+    actionBar.style.display = isRestricted ? "none" : "flex";
   });
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  updateActionBarVisibility();
+// ============================================================
+//  View Switching
+// ============================================================
 
+/**
+ * Switch to a different view. Loads the view HTML on first access,
+ * injects it into the DOM, and runs its initializer.
+ */
+async function switchView(viewId) {
+  if (currentActiveView === viewId && viewCache[viewId]?.initialized) return;
+
+  // 1. Hide current view
+  if (viewCache[currentActiveView]?.container) {
+    viewCache[currentActiveView].container.classList.remove("active");
+  }
+
+  // 2. Load HTML if not yet fetched
+  if (!viewCache[viewId] || !viewCache[viewId].html) {
+    await loadViewHtml(viewId);
+  }
+
+  // 3. Inject into DOM if not yet attached
+  if (!viewCache[viewId].container) {
+    injectViewContainer(viewId, viewCache[viewId].html);
+  }
+
+  // 4. Show the target view
+  viewCache[viewId].container.classList.add("active");
+
+  // 5. Run initializer on first activation
+  if (!viewCache[viewId].initialized) {
+    if (viewId === "viewList") initListView();
+    else if (viewId === "viewFavorites") initFavoritesView();
+    else viewCache[viewId].initialized = true; // downloads / settings need no init
+  }
+
+  // 6. Refresh data for data-driven views
+  chrome.storage.local.get(["tabs"], (result) => {
+    const tabs = result.tabs || [];
+    if (viewId === "viewList") renderElements(tabs);
+    else if (viewId === "viewFavorites") renderFavorites(tabs);
+  });
+
+  // 7. Update nav active state
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    item.classList.toggle("active", item.dataset.view === viewId);
+  });
+
+  currentActiveView = viewId;
+}
+
+// ============================================================
+//  Shell Initialization
+// ============================================================
+
+function init() {
+  const navItems = document.querySelectorAll(".nav-item");
+
+  // Wire up nav clicks
+  navItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      const viewId = item.dataset.view;
+      if (viewId) switchView(viewId);
+    });
+  });
+
+  // Migrate old "groups" data to "tabs" format if needed
   chrome.storage.local.get(["tabs", "groups"], (result) => {
     let tabs = result.tabs;
-
-    // Data Migration: If no 'tabs' but 'groups' exists, migrate them
-    if (!tabs && result.groups && result.groups.length > 0) {
+    if (
+      (!tabs || tabs.length === 0) &&
+      result.groups &&
+      result.groups.length > 0
+    ) {
       tabs = [];
-      result.groups.forEach(group => {
-        if (group.tabs && Array.isArray(group.tabs)) {
-          group.tabs.forEach(tab => {
+      result.groups.forEach((g) => {
+        if (g.tabs)
+          g.tabs.forEach((t) =>
             tabs.push({
-              ...tab,
-              description: tab.description || "",
-              created_at: tab.created_at || Date.now()
-            });
-          });
-        }
+              ...t,
+              description: t.description || "",
+              created_at: t.created_at || Date.now(),
+              isFavorite: false,
+            }),
+          );
       });
-      // Save migrated data
-      chrome.storage.local.set({ tabs: tabs });
-      // Optionally clean up old data
-      // chrome.storage.local.remove("groups");
+      chrome.storage.local.set({ tabs });
     }
-
-    renderElements(tabs || []);
   });
-});
 
-// Update visibility when switching tabs or updating tabs
-chrome.tabs.onActivated.addListener(updateActionBarVisibility);
-chrome.tabs.onUpdated.addListener(updateActionBarVisibility);
-
-// Sync data across multiple open tabs/pages
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.tabs) {
-    // Only re-render if the search is empty to avoid interrupting user search
-    if (!currentSearchWords) {
-      renderElements(changes.tabs.newValue || []);
+  // Listen for storage changes from other contexts (e.g. inject.js via background)
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.tabs && !currentSearchWords) {
+      const viewId = currentActiveView;
+      // Only re-render if the target view is already initialized
+      if (viewId === "viewList" && viewCache.viewList?.initialized) {
+        renderElements(changes.tabs.newValue || []);
+      } else if (
+        viewId === "viewFavorites" &&
+        viewCache.viewFavorites?.initialized
+      ) {
+        renderFavorites(changes.tabs.newValue || []);
+      }
     }
-  }
-});
+  });
 
-// ---- Side Panel State Management ----
+  // --- Side panel lifecycle (connect to background) ---
+  const port = chrome.runtime.connect({ name: "sidepanel" });
+  chrome.windows.getCurrent((win) =>
+    port.postMessage({ action: "init", windowId: win.id }),
+  );
+  port.onMessage.addListener((m) => {
+    if (m.action === "close_side_panel") window.close();
+  });
+  chrome.runtime.onMessage.addListener((m) => {
+    if (m.action === "close_side_panel") window.close();
+  });
 
-// Establish connection with background script
-const port = chrome.runtime.connect({ name: 'sidepanel' });
+  // --- Load the default view (list) ---
+  switchView("viewList");
+}
 
-// Report that the side panel has opened and provide windowId
-chrome.windows.getCurrent((win) => {
-  port.postMessage({ action: "init", windowId: win.id });
-});
-
-// Listen for messages from background script via port
-port.onMessage.addListener((message) => {
-  if (message.action === "close_side_panel") {
-    window.close();
-  }
-});
-
-// Also keep standard message listener for safety
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === "close_side_panel") {
-    window.close();
-  }
-});
+// Boot
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
