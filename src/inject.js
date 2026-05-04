@@ -54,7 +54,24 @@
   let dragOverlay = null;
 
   const openSidePanel = () => {
-    chrome.runtime.sendMessage({ action: "toggle_side_panel" });
+    // Check if context is still valid
+    if (!chrome.runtime?.id) {
+      console.debug("Tabs Home: Context invalidated, removing floating button.");
+      button.remove();
+      return;
+    }
+
+    chrome.runtime.sendMessage({ action: "toggle_side_panel" }, (response) => {
+      if (chrome.runtime.lastError) {
+        const errorMsg = chrome.runtime.lastError.message;
+        if (errorMsg.includes("Extension context invalidated")) {
+          console.debug("Tabs Home: Context invalidated, removing floating button.");
+          button.remove();
+        } else {
+          console.error("Tabs Home: Connection to background script failed:", errorMsg);
+        }
+      }
+    });
   };
 
   button.addEventListener('mousedown', (e) => {

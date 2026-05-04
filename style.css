@@ -13,6 +13,7 @@ body {
 /* ---- Top Bar ---- */
 .top-bar {
   flex-shrink: 0;
+  border-bottom-color: #f3f4f6; /* Light gray */
 }
 
 /* ---- Main Container ---- */
@@ -27,6 +28,7 @@ body {
   flex-shrink: 0;
   z-index: 20;
   background: #ffffff;
+  border-top-color: #f3f4f6; /* Light gray */
 }
 
 /* ---- Group Input (hidden by default) ---- */
@@ -192,7 +194,8 @@ body {
   white-space: nowrap;
 }
 
-.tab-row .tab-close {
+.tab-row .tab-close,
+.tab-row .tab-favorite {
   flex-shrink: 0;
   width: 20px;
   height: 20px;
@@ -209,12 +212,21 @@ body {
   opacity: 0;
   transition: all 0.15s;
 }
-.tab-row:hover .tab-close {
+.tab-row:hover .tab-close,
+.tab-row:hover .tab-favorite {
   opacity: 1;
 }
 .tab-row .tab-close:hover {
   background: #fee2e2;
   color: #ef4444;
+}
+.tab-row .tab-favorite:hover {
+  background: #fef3c7;
+  color: #f59e0b;
+}
+.tab-row .tab-favorite.is-active {
+  opacity: 1;
+  color: #f59e0b;
 }
 
 /* ---- Drag Drop ---- */

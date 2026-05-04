@@ -49,7 +49,7 @@ function renderElements(tabs) {
 
 // ---- Tab Row ----
 function createTabRow(tab) {
-  const { url, title, id, favIconUrl, description, created_at } = tab;
+  const { url, title, id, favIconUrl, description, created_at, isFavorite } = tab;
 
   const row = document.createElement("div");
   row.className = "tab-row";
@@ -58,6 +58,7 @@ function createTabRow(tab) {
   row.dataset.tabUrl = url;
   row.dataset.tabDescription = description || "";
   row.dataset.createdAt = created_at || Date.now();
+  row.dataset.isFavorite = isFavorite ? "true" : "false";
   if (favIconUrl) row.dataset.tabFavicon = favIconUrl;
 
   // Info
@@ -111,6 +112,22 @@ function createTabRow(tab) {
   info.appendChild(metaLine);
   row.appendChild(info);
 
+  // Favorite Button
+  const favBtn = document.createElement("button");
+  favBtn.className = "tab-favorite" + (isFavorite ? " is-active" : "");
+  favBtn.innerHTML = isFavorite ? "&#9733;" : "&#9734;"; // Filled vs Outline star
+  favBtn.title = isFavorite ? "取消收藏" : "收藏";
+  favBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const newFavState = row.dataset.isFavorite !== "true";
+    row.dataset.isFavorite = newFavState ? "true" : "false";
+    favBtn.className = "tab-favorite" + (newFavState ? " is-active" : "");
+    favBtn.innerHTML = newFavState ? "&#9733;" : "&#9734;";
+    favBtn.title = newFavState ? "取消收藏" : "收藏";
+    saveCurrentUIStateToStorage();
+  });
+  row.appendChild(favBtn);
+
   const closeBtn = document.createElement("button");
   closeBtn.className = "tab-close";
   closeBtn.innerHTML = "&#10005;";
@@ -124,11 +141,14 @@ function createTabRow(tab) {
   row.appendChild(closeBtn);
 
   row.addEventListener("click", (e) => {
-    if (e.target.closest(".tab-close")) return;
+    if (e.target.closest(".tab-close") || e.target.closest(".tab-favorite")) return;
     chrome.tabs.create({ url: url });
-    row.remove();
-    saveCurrentUIStateToStorage();
-    updateGlobalEmptyState();
+    
+    if (row.dataset.isFavorite !== "true") {
+      row.remove();
+      saveCurrentUIStateToStorage();
+      updateGlobalEmptyState();
+    }
   });
 
   row.addEventListener("dragstart", (e) => {
@@ -201,6 +221,7 @@ function saveCurrentUIStateToStorage() {
       favIconUrl: row.dataset.tabFavicon || "",
       description: row.dataset.tabDescription || "",
       created_at: parseInt(row.dataset.createdAt) || Date.now(),
+      isFavorite: row.dataset.isFavorite === "true",
     });
   });
 
@@ -368,6 +389,13 @@ chrome.windows.getCurrent((win) => {
 
 // Listen for messages from background script via port
 port.onMessage.addListener((message) => {
+  if (message.action === "close_side_panel") {
+    window.close();
+  }
+});
+
+// Also keep standard message listener for safety
+chrome.runtime.onMessage.addListener((message) => {
   if (message.action === "close_side_panel") {
     window.close();
   }
