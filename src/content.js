@@ -61,14 +61,6 @@ function createTabRow(tab) {
   row.dataset.isFavorite = isFavorite ? "true" : "false";
   if (favIconUrl) row.dataset.tabFavicon = favIconUrl;
 
-  // Info
-  const info = document.createElement("div");
-  info.className = "tab-info";
-
-  // Title Row (Favicon + Title)
-  const titleRow = document.createElement("div");
-  titleRow.className = "tab-title-row";
-
   // Favicon
   const favicon = document.createElement("img");
   favicon.className = "tab-favicon";
@@ -76,14 +68,16 @@ function createTabRow(tab) {
   favicon.onerror = function () {
     this.style.display = "none";
   };
-  titleRow.appendChild(favicon);
+  row.appendChild(favicon);
+
+  // Info
+  const info = document.createElement("div");
+  info.className = "tab-info";
 
   const titleSpan = document.createElement("span");
   titleSpan.className = "tab-title";
   titleSpan.textContent = title;
-  titleRow.appendChild(titleSpan);
-
-  info.appendChild(titleRow);
+  info.appendChild(titleSpan);
 
   // Description (if exists)
   if (description) {

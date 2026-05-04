@@ -141,18 +141,12 @@ body {
   gap: 2px;
   text-align: left;
 }
-.tab-row .tab-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin-bottom: 2px;
-}
 .tab-row .tab-favicon {
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
   border-radius: 2px;
+  margin-top: 2px; /* Align with first line of title */
 }
 .tab-row .tab-title {
   font-size: 13px;
@@ -161,11 +155,11 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: normal; /* Let flex center it */
+  line-height: 1.4;
 }
 .tab-row .tab-description {
   font-size: 11px;
-  color: #6366f1;
+  color: #4b5563; /* Lighter dark gray, closer to title #1f2937 */
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
