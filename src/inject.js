@@ -336,8 +336,8 @@
 
     document.body.appendChild(introduceBubble);
 
-    // Auto-dismiss after 10 seconds
-    introduceTimer = setTimeout(dismissIntroduceBubble, 10000);
+    // Auto-dismiss after 5 seconds
+    introduceTimer = setTimeout(dismissIntroduceBubble, 5000);
   }
 
   // Start periodic timer: every 30 seconds
