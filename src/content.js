@@ -315,6 +315,58 @@ function injectViewContainer(viewId, html) {
   return viewRoot;
 }
 
+function formatExportDate(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return "";
+
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function cleanLinkForExport(tab) {
+  const { id, isFavorite, created_at, ...link } = tab;
+  return {
+    ...link,
+    created_at: formatExportDate(created_at),
+  };
+}
+
+function getBrowserName() {
+  const userAgent = navigator.userAgent;
+  if (/Edg\//.test(userAgent)) return "edge";
+  if (/Firefox\//.test(userAgent)) return "firefox";
+  if (/OPR\//.test(userAgent) || /Opera\//.test(userAgent)) return "opera";
+  if (/Chrome\//.test(userAgent)) return "chrome";
+  if (/Safari\//.test(userAgent)) return "safari";
+  return "browser";
+}
+
+function getExportFilename() {
+  const now = new Date();
+  const pad = (number) => String(number).padStart(2, "0");
+  const dayMonth = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}`;
+  return `${getBrowserName()} stored pages ${dayMonth}.txt`;
+}
+
+function downloadStoredLinks() {
+  chrome.storage.local.get(["tabs"], (result) => {
+    const links = (result.tabs || []).map(cleanLinkForExport);
+    const jsonText = JSON.stringify(links, null, 2);
+    const blob = new Blob([jsonText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = getExportFilename();
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+}
+
 // ============================================================
 //  View Initializers
 // ============================================================
@@ -581,6 +633,10 @@ function init() {
   navItems.forEach((item) => {
     item.addEventListener("click", () => {
       const viewId = item.dataset.view;
+      if (viewId === "viewDownloads") {
+        downloadStoredLinks();
+        return;
+      }
       if (viewId) switchView(viewId);
     });
   });
