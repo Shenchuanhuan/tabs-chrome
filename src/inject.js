@@ -4,6 +4,41 @@
 
   const iconUrl = chrome.runtime.getURL("assets/icons/favicon-32x32.png");
 
+  // Inject speech bubble tail style
+  const bubbleStyle = document.createElement("style");
+  bubbleStyle.textContent = `
+    .tabs-home-introduce-bubble::before,
+    .tabs-home-introduce-bubble::after {
+      content: '';
+      position: absolute;
+      pointer-events: none;
+      width: 0;
+      height: 0;
+      transform: rotate(-8deg);
+      transform-origin: top center;
+    }
+
+    .tabs-home-introduce-bubble::before {
+      bottom: -13px;
+      right: 15px;
+      border-left: 10px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 14px solid rgba(0, 0, 0, 0.18);
+      filter: blur(1px);
+    }
+
+    .tabs-home-introduce-bubble::after {
+      bottom: -10px;
+      right: 18px;
+      width: 0;
+      height: 0;
+      border-left: 9px solid transparent;
+      border-right: 7px solid transparent;
+      border-top: 13px solid #1f2937;
+    }
+  `;
+  document.head.appendChild(bubbleStyle);
+
   // Create floating button
   const button = document.createElement("div");
   button.id = "tabs-home-floating-button";
@@ -252,8 +287,8 @@
     introduceBubble.className = "tabs-home-introduce-bubble";
     introduceBubble.style.cssText = `
       position: fixed;
-      bottom: 78px;
-      right: 20px;
+      bottom: 0;
+      right: 0;
       background: #1f2937;
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -271,12 +306,17 @@
       align-items: center;
       gap: 8px;
       user-select: none;
+      text-align: left;
     `;
 
-    introduceBubble.innerHTML = `
-      <span>💡 主人，看 「 ${picked.title} 」吗？</span>
-      <span style="font-size:11px;color:#9ca3af;">看看</span>
-    `;
+    // Position bubble relative to floating button
+    const btnRect = button.getBoundingClientRect();
+    const bubbleBottom = window.innerHeight - btnRect.top + 10; // 10px gap above button
+    const bubbleRight = window.innerWidth - btnRect.right;
+    introduceBubble.style.bottom = bubbleBottom + "px";
+    introduceBubble.style.right = bubbleRight + "px";
+
+    introduceBubble.innerHTML = `<span>💡 主人，看 「 ${picked.title} 」吗？</span>`;
 
     // Click handler: dismiss and open link in new tab
     introduceBubble.addEventListener("click", (e) => {
