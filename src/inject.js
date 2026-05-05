@@ -172,6 +172,7 @@
         button.style.bottom = newBottom + "px";
         button.style.left = "auto";
         button.style.top = "auto";
+        updateIntroduceBubblePosition();
       }
     };
 
@@ -204,6 +205,16 @@
 
   let introduceBubble = null;
   let introduceTimer = null;
+
+  function updateIntroduceBubblePosition() {
+    if (!introduceBubble) return;
+
+    const btnRect = button.getBoundingClientRect();
+    const bubbleBottom = window.innerHeight - btnRect.top + 10; // 10px gap above button
+    const bubbleRight = window.innerWidth - btnRect.right;
+    introduceBubble.style.bottom = bubbleBottom + "px";
+    introduceBubble.style.right = bubbleRight + "px";
+  }
 
   function dismissIntroduceBubble() {
     if (introduceTimer) {
@@ -309,12 +320,7 @@
       text-align: left;
     `;
 
-    // Position bubble relative to floating button
-    const btnRect = button.getBoundingClientRect();
-    const bubbleBottom = window.innerHeight - btnRect.top + 10; // 10px gap above button
-    const bubbleRight = window.innerWidth - btnRect.right;
-    introduceBubble.style.bottom = bubbleBottom + "px";
-    introduceBubble.style.right = bubbleRight + "px";
+    updateIntroduceBubblePosition();
 
     introduceBubble.innerHTML = `<span>💡 主人，看 「 ${picked.title} 」吗？</span>`;
 
