@@ -21,7 +21,7 @@
   "background": {
     "service_worker": "src/background.js"
   },
-  "permissions": ["storage", "activeTab", "tabs", "sidePanel"],
+  "permissions": ["storage", "activeTab", "tabs", "sidePanel", "alarms"],
   "side_panel": {
     "default_path": "html/sidepanel.html"
   },
@@ -34,7 +34,12 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["html/sidepanel.html", "src/content.js", "dist/style.css", "assets/icons/*"],
+      "resources": [
+        "html/sidepanel.html",
+        "src/content.js",
+        "dist/style.css",
+        "assets/icons/*"
+      ],
       "matches": ["<all_urls>"]
     }
   ]
