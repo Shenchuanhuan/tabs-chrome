@@ -274,7 +274,7 @@
     `;
 
     introduceBubble.innerHTML = `
-      <span>🔖 主人，看 「 ${picked.title} 」吗？</span>
+      <span>💡 主人，看 「 ${picked.title} 」吗？</span>
       <span style="font-size:11px;color:#9ca3af;">看看</span>
     `;
 
