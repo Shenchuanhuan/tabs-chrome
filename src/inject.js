@@ -87,34 +87,73 @@
   let initialRight, initialBottom;
   let originalUserSelect = "";
   let dragOverlay = null;
+  let isExtensionContextInvalidated = false;
+
+  function isExtensionContextValid() {
+    try {
+      return !!chrome.runtime?.id;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function cleanupInvalidatedContext() {
+    if (isExtensionContextInvalidated) return;
+    isExtensionContextInvalidated = true;
+
+    console.debug(
+      "Tabs Home: Context invalidated, removing floating button.",
+    );
+    window.hasTabsHomeInjected = false;
+    button.remove();
+    bubbleStyle.remove();
+    dismissIntroduceBubble();
+    if (dragOverlay) dragOverlay.remove();
+    if (introduceInterval) clearInterval(introduceInterval);
+    if (firstIntroduceTimeout) clearTimeout(firstIntroduceTimeout);
+  }
 
   const openSidePanel = () => {
-    // Check if context is still valid
-    if (!chrome.runtime?.id) {
-      console.debug(
-        "Tabs Home: Context invalidated, removing floating button.",
-      );
-      button.remove();
+    if (!isExtensionContextValid()) {
+      cleanupInvalidatedContext();
       return;
     }
 
-    chrome.runtime.sendMessage({ action: "toggle_side_panel" }, (response) => {
-      if (chrome.runtime.lastError) {
-        const errorMsg = chrome.runtime.lastError.message;
-        if (errorMsg.includes("Extension context invalidated")) {
-          console.debug(
-            "Tabs Home: Context invalidated, removing floating button.",
-          );
-          button.remove();
-        } else {
-          console.error(
-            "Tabs Home: Connection to background script failed:",
-            errorMsg,
-          );
+    try {
+      chrome.runtime.sendMessage({ action: "toggle_side_panel" }, (response) => {
+        if (chrome.runtime.lastError) {
+          const errorMsg = chrome.runtime.lastError.message;
+          if (errorMsg.includes("Extension context invalidated")) {
+            cleanupInvalidatedContext();
+          } else {
+            console.error(
+              "Tabs Home: Connection to background script failed:",
+              errorMsg,
+            );
+          }
         }
+      });
+    } catch (error) {
+      if (!isExtensionContextValid()) {
+        cleanupInvalidatedContext();
+      } else {
+        console.error(
+          "Tabs Home: Connection to background script failed:",
+          error,
+        );
       }
-    });
+    }
   };
+
+  function showIntroduceBubbleSafely() {
+    showIntroduceBubble().catch((error) => {
+      if (!isExtensionContextValid()) {
+        cleanupInvalidatedContext();
+        return;
+      }
+      console.error("Tabs Home: Failed to show introduce bubble:", error);
+    });
+  }
 
   button.addEventListener("mousedown", (e) => {
     e.preventDefault();
@@ -205,6 +244,9 @@
 
   let introduceBubble = null;
   let introduceTimer = null;
+  let introduceInterval = null;
+  let firstIntroduceTimeout = null;
+  const INTRODUCE_BUBBLE_INTERVAL_MS = 10 * 60 * 1000;
 
   function updateIntroduceBubblePosition() {
     if (!introduceBubble) return;
@@ -234,6 +276,11 @@
   }
 
   async function showIntroduceBubble() {
+    if (!isExtensionContextValid()) {
+      cleanupInvalidatedContext();
+      return;
+    }
+
     // Don't show on restricted pages
     if (
       window.location.protocol === "chrome:" ||
@@ -246,7 +293,17 @@
     dismissIntroduceBubble();
 
     // Get saved tabs and existing introduce data
-    const result = await chrome.storage.local.get(["tabs", "introduce"]);
+    let result;
+    try {
+      result = await chrome.storage.local.get(["tabs", "introduce"]);
+    } catch (error) {
+      if (!isExtensionContextValid()) {
+        cleanupInvalidatedContext();
+        return;
+      }
+      console.error("Tabs Home: Failed to read saved tabs:", error);
+      return;
+    }
     const allTabs = result.tabs || [];
     const existingIntroduce = result.introduce;
 
@@ -286,12 +343,21 @@
       isFavorite: picked.isFavorite || false,
     };
 
-    chrome.storage.local.set({
-      introduce: {
-        last_timestamp: Date.now(),
-        link: linkData,
-      },
-    });
+    try {
+      await chrome.storage.local.set({
+        introduce: {
+          last_timestamp: Date.now(),
+          link: linkData,
+        },
+      });
+    } catch (error) {
+      if (!isExtensionContextValid()) {
+        cleanupInvalidatedContext();
+        return;
+      }
+      console.error("Tabs Home: Failed to save introduce link:", error);
+      return;
+    }
 
     // Create bubble
     introduceBubble = document.createElement("div");
@@ -329,15 +395,20 @@
       e.stopPropagation();
       const urlToOpen = linkData.url;
       dismissIntroduceBubble();
-      chrome.runtime.sendMessage(
-        { action: "open_link", url: urlToOpen },
-        () => {
-          if (chrome.runtime.lastError) {
-            // Fallback: open directly
-            window.open(urlToOpen, "_blank");
-          }
-        },
-      );
+      try {
+        chrome.runtime.sendMessage(
+          { action: "open_link", url: urlToOpen },
+          () => {
+            if (chrome.runtime.lastError) {
+              // Fallback: open directly
+              window.open(urlToOpen, "_blank");
+            }
+          },
+        );
+      } catch (_) {
+        window.open(urlToOpen, "_blank");
+        if (!isExtensionContextValid()) cleanupInvalidatedContext();
+      }
     });
 
     document.body.appendChild(introduceBubble);
@@ -346,17 +417,17 @@
     introduceTimer = setTimeout(dismissIntroduceBubble, 5000);
   }
 
-  // Start periodic timer: every 30 seconds
-  setInterval(() => {
+  // Start periodic timer: every 10 minutes
+  introduceInterval = setInterval(() => {
     if (document.visibilityState === "visible") {
-      showIntroduceBubble();
+      showIntroduceBubbleSafely();
     }
-  }, 30000);
+  }, INTRODUCE_BUBBLE_INTERVAL_MS);
 
-  // First bubble after 2 seconds
-  setTimeout(() => {
+  // First bubble after 10 minutes
+  firstIntroduceTimeout = setTimeout(() => {
     if (document.visibilityState === "visible") {
-      showIntroduceBubble();
+      showIntroduceBubbleSafely();
     }
-  }, 2000);
+  }, INTRODUCE_BUBBLE_INTERVAL_MS);
 })();
