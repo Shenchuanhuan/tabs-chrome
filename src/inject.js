@@ -146,13 +146,15 @@
   };
 
   function showIntroduceBubbleSafely() {
-    showIntroduceBubble().catch((error) => {
+    try {
+      showIntroduceBubble();
+    } catch (error) {
       if (!isExtensionContextValid()) {
         cleanupInvalidatedContext();
         return;
       }
       console.error("Tabs Home: Failed to show introduce bubble:", error);
-    });
+    }
   }
 
   button.addEventListener("mousedown", (e) => {
@@ -275,91 +277,42 @@
     }
   }
 
-  async function showIntroduceBubble() {
-    if (!isExtensionContextValid()) {
-      cleanupInvalidatedContext();
-      return;
+  function getRuntimeLastErrorMessage() {
+    try {
+      return chrome.runtime.lastError?.message || "";
+    } catch (_) {
+      return "Extension context invalidated";
     }
+  }
 
-    // Don't show on restricted pages
+  function handleExtensionApiError(message, error) {
+    const errorMessage = error?.message || String(error || "");
     if (
-      window.location.protocol === "chrome:" ||
-      window.location.protocol === "chrome-extension:" ||
-      window.location.href === "about:blank"
-    )
-      return;
-
-    // Remove existing bubble
-    dismissIntroduceBubble();
-
-    // Get saved tabs and existing introduce data
-    let result;
-    try {
-      result = await chrome.storage.local.get(["tabs", "introduce"]);
-    } catch (error) {
-      if (!isExtensionContextValid()) {
-        cleanupInvalidatedContext();
-        return;
-      }
-      console.error("Tabs Home: Failed to read saved tabs:", error);
-      return;
-    }
-    const allTabs = result.tabs || [];
-    const existingIntroduce = result.introduce;
-
-    if (allTabs.length === 0) return; // No saved links to recommend
-
-    // Pick a random link, avoiding the current introduce.link if it exists
-    let picked = null;
-    const maxAttempts = 20;
-    for (let i = 0; i < maxAttempts; i++) {
-      const randomIndex = Math.floor(Math.random() * allTabs.length);
-      const candidate = allTabs[randomIndex];
-      // Skip if title AND url match existing introduce.link
-      if (
-        existingIntroduce &&
-        existingIntroduce.link &&
-        candidate.title === existingIntroduce.link.title &&
-        candidate.url === existingIntroduce.link.url
-      ) {
-        continue;
-      }
-      picked = candidate;
-      break;
+      errorMessage.includes("Extension context invalidated") ||
+      !isExtensionContextValid()
+    ) {
+      cleanupInvalidatedContext();
+      return true;
     }
 
-    // Fallback: if all attempts failed (e.g. only one link and it matches), use first link
-    if (!picked) {
-      picked = allTabs[0];
+    console.error(message, error);
+    return true;
+  }
+
+  function handleRuntimeLastError(message) {
+    const errorMessage = getRuntimeLastErrorMessage();
+    if (!errorMessage) return false;
+
+    if (errorMessage.includes("Extension context invalidated")) {
+      cleanupInvalidatedContext();
+      return true;
     }
 
-    // Deep copy and save to introduce
-    const linkData = {
-      url: picked.url,
-      title: picked.title,
-      favIconUrl: picked.favIconUrl || "",
-      description: picked.description || "",
-      created_at: picked.created_at || Date.now(),
-      isFavorite: picked.isFavorite || false,
-    };
+    console.error(message, errorMessage);
+    return true;
+  }
 
-    try {
-      await chrome.storage.local.set({
-        introduce: {
-          last_timestamp: Date.now(),
-          link: linkData,
-        },
-      });
-    } catch (error) {
-      if (!isExtensionContextValid()) {
-        cleanupInvalidatedContext();
-        return;
-      }
-      console.error("Tabs Home: Failed to save introduce link:", error);
-      return;
-    }
-
-    // Create bubble
+  function createIntroduceBubble(picked, linkData) {
     introduceBubble = document.createElement("div");
     introduceBubble.className = "tabs-home-introduce-bubble";
     introduceBubble.style.cssText = `
@@ -415,6 +368,106 @@
 
     // Auto-dismiss after 5 seconds
     introduceTimer = setTimeout(dismissIntroduceBubble, 5000);
+  }
+
+  function showIntroduceBubble() {
+    if (!isExtensionContextValid()) {
+      cleanupInvalidatedContext();
+      return;
+    }
+
+    // Don't show on restricted pages
+    if (
+      window.location.protocol === "chrome:" ||
+      window.location.protocol === "chrome-extension:" ||
+      window.location.href === "about:blank"
+    )
+      return;
+
+    // Remove existing bubble
+    dismissIntroduceBubble();
+
+    try {
+      chrome.storage.local.get(["tabs", "introduce"], (result = {}) => {
+        try {
+          if (handleRuntimeLastError("Tabs Home: Failed to read saved tabs:")) {
+            return;
+          }
+
+          const allTabs = result.tabs || [];
+          const existingIntroduce = result.introduce;
+
+          if (allTabs.length === 0) return; // No saved links to recommend
+
+          // Pick a random link, avoiding the current introduce.link if it exists
+          let picked = null;
+          const maxAttempts = 20;
+          for (let i = 0; i < maxAttempts; i++) {
+            const randomIndex = Math.floor(Math.random() * allTabs.length);
+            const candidate = allTabs[randomIndex];
+            // Skip if title AND url match existing introduce.link
+            if (
+              existingIntroduce &&
+              existingIntroduce.link &&
+              candidate.title === existingIntroduce.link.title &&
+              candidate.url === existingIntroduce.link.url
+            ) {
+              continue;
+            }
+            picked = candidate;
+            break;
+          }
+
+          // Fallback: if all attempts failed (e.g. only one link and it matches), use first link
+          if (!picked) {
+            picked = allTabs[0];
+          }
+
+          // Deep copy and save to introduce
+          const linkData = {
+            url: picked.url,
+            title: picked.title,
+            favIconUrl: picked.favIconUrl || "",
+            description: picked.description || "",
+            created_at: picked.created_at || Date.now(),
+            isFavorite: picked.isFavorite || false,
+          };
+
+          try {
+            chrome.storage.local.set(
+              {
+                introduce: {
+                  last_timestamp: Date.now(),
+                  link: linkData,
+                },
+              },
+              () => {
+                if (
+                  handleRuntimeLastError(
+                    "Tabs Home: Failed to save introduce link:",
+                  )
+                ) {
+                  return;
+                }
+                createIntroduceBubble(picked, linkData);
+              },
+            );
+          } catch (error) {
+            handleExtensionApiError(
+              "Tabs Home: Failed to save introduce link:",
+              error,
+            );
+          }
+        } catch (error) {
+          handleExtensionApiError(
+            "Tabs Home: Failed to show introduce bubble:",
+            error,
+          );
+        }
+      });
+    } catch (error) {
+      handleExtensionApiError("Tabs Home: Failed to read saved tabs:", error);
+    }
   }
 
   // Start periodic timer: every 10 minutes
