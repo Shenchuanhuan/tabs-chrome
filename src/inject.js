@@ -109,8 +109,8 @@
     bubbleStyle.remove();
     dismissIntroduceBubble();
     if (dragOverlay) dragOverlay.remove();
-    if (introduceInterval) clearInterval(introduceInterval);
-    if (firstIntroduceTimeout) clearTimeout(firstIntroduceTimeout);
+    stopIntroduceBubbleLoop();
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
   }
 
   const openSidePanel = () => {
@@ -246,8 +246,7 @@
 
   let introduceBubble = null;
   let introduceTimer = null;
-  let introduceInterval = null;
-  let firstIntroduceTimeout = null;
+  let introduceLoopTimeout = null;
   const INTRODUCE_BUBBLE_INTERVAL_MS = 10 * 60 * 1000;
 
   function updateIntroduceBubblePosition() {
@@ -313,6 +312,8 @@
   }
 
   function createIntroduceBubble(picked, linkData) {
+    if (document.visibilityState !== "visible") return;
+
     introduceBubble = document.createElement("div");
     introduceBubble.className = "tabs-home-introduce-bubble";
     introduceBubble.style.cssText = `
@@ -470,17 +471,41 @@
     }
   }
 
-  // Start periodic timer: every 10 minutes
-  introduceInterval = setInterval(() => {
-    if (document.visibilityState === "visible") {
-      showIntroduceBubbleSafely();
-    }
-  }, INTRODUCE_BUBBLE_INTERVAL_MS);
+  function stopIntroduceBubbleLoop() {
+    if (!introduceLoopTimeout) return;
+    clearTimeout(introduceLoopTimeout);
+    introduceLoopTimeout = null;
+  }
 
-  // First bubble after 10 minutes
-  firstIntroduceTimeout = setTimeout(() => {
-    if (document.visibilityState === "visible") {
-      showIntroduceBubbleSafely();
+  function scheduleNextIntroduceBubble() {
+    stopIntroduceBubbleLoop();
+
+    if (
+      isExtensionContextInvalidated ||
+      document.visibilityState !== "visible"
+    ) {
+      return;
     }
-  }, INTRODUCE_BUBBLE_INTERVAL_MS);
+
+    introduceLoopTimeout = setTimeout(() => {
+      introduceLoopTimeout = null;
+      if (document.visibilityState === "visible") {
+        showIntroduceBubbleSafely();
+        scheduleNextIntroduceBubble();
+      }
+    }, INTRODUCE_BUBBLE_INTERVAL_MS);
+  }
+
+  function handleVisibilityChange() {
+    if (document.visibilityState === "visible") {
+      scheduleNextIntroduceBubble();
+      return;
+    }
+
+    stopIntroduceBubbleLoop();
+    dismissIntroduceBubble();
+  }
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  scheduleNextIntroduceBubble();
 })();
