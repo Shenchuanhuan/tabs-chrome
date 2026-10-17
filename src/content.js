@@ -391,8 +391,12 @@ function initListView() {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const activeTab = tabs[0];
         if (!activeTab) return;
-        const { url, id, favIconUrl, title } = activeTab;
+        const { id, favIconUrl, title } = activeTab;
+        // url is "" until the tab's navigation commits (e.g. a just-created
+        // tab); fall back to pendingUrl and never save a record without url
+        const url = activeTab.url || activeTab.pendingUrl || "";
         if (
+          !url ||
           url.startsWith("chrome://") ||
           url.startsWith("chrome-extension://") ||
           url === "about:blank"
@@ -645,14 +649,12 @@ function init() {
     });
   });
 
-  // Migrate old "groups" data to "tabs" format if needed
+  // Migrate old "groups" data to "tabs" format if needed, and drop broken
+  // records without url (saved before the page had loaded)
   chrome.storage.local.get(["tabs", "groups"], (result) => {
-    let tabs = result.tabs;
-    if (
-      (!tabs || tabs.length === 0) &&
-      result.groups &&
-      result.groups.length > 0
-    ) {
+    let tabs = result.tabs || [];
+    let changed = false;
+    if (tabs.length === 0 && result.groups && result.groups.length > 0) {
       tabs = [];
       result.groups.forEach((g) => {
         if (g.tabs)
@@ -665,8 +667,11 @@ function init() {
             }),
           );
       });
-      chrome.storage.local.set({ tabs });
+      changed = true;
     }
+    const validTabs = tabs.filter((t) => t && t.url);
+    if (validTabs.length !== tabs.length) changed = true;
+    if (changed) chrome.storage.local.set({ tabs: validTabs });
   });
 
   // Listen for storage changes from other contexts (e.g. inject.js via background)
