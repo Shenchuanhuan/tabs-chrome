@@ -13,7 +13,6 @@ function isExtensionAlive() {
 }
 
 // ---- Shared State ----
-let currentDraggingTabEl = null;
 let currentSearchWords = "";
 let currentActiveView = "viewList";
 
@@ -108,7 +107,7 @@ function createDateDivider(timestamp) {
 }
 
 // Update each divider's count; drop dividers whose day has no rows left
-// (after a row is removed or dragged into another day)
+// (after a row is removed)
 function refreshDateDividers() {
   const tabContainer = $.viewList.tabContainer;
   if (!tabContainer) return;
@@ -134,13 +133,7 @@ function createTabRow(tab) {
 
   const row = document.createElement("div");
   row.className = "tab-row";
-  row.setAttribute("draggable", "true");
-  row.dataset.tabId = id;
-  row.dataset.tabUrl = url;
-  row.dataset.tabDescription = description || "";
-  row.dataset.createdAt = created_at || Date.now();
   row.dataset.isFavorite = isFavorite ? "true" : "false";
-  if (favIconUrl) row.dataset.tabFavicon = favIconUrl;
 
   // Top block (favicon + text)
   const header = document.createElement("div");
@@ -252,71 +245,7 @@ function createTabRow(tab) {
     }
   });
 
-  // ---- Drag & Drop ----
-  row.addEventListener("dragstart", (e) => {
-    e.dataTransfer.setData("tabId", id);
-    e.dataTransfer.effectAllowed = "move";
-    row.classList.add("dragging");
-    currentDraggingTabEl = row;
-  });
-  row.addEventListener("dragend", () => {
-    row.classList.remove("dragging");
-    currentDraggingTabEl = null;
-    document.querySelectorAll(".drop-above, .drop-below").forEach((el) => {
-      el.classList.remove("drop-above", "drop-below");
-    });
-  });
-  row.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    const rect = row.getBoundingClientRect();
-    const offset = e.clientY - rect.top;
-    row.classList.remove("drop-above", "drop-below");
-    row.classList.add(offset < rect.height / 2 ? "drop-above" : "drop-below");
-  });
-  row.addEventListener("dragleave", () => {
-    row.classList.remove("drop-above", "drop-below");
-  });
-  row.addEventListener("drop", (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    row.classList.remove("drop-above", "drop-below");
-    const draggingEl = currentDraggingTabEl;
-    if (!draggingEl || draggingEl === row) return;
-    const rect = row.getBoundingClientRect();
-    const offset = e.clientY - rect.top;
-    if (offset < rect.height / 2) {
-      row.parentElement.insertBefore(draggingEl, row);
-    } else {
-      row.parentElement.insertBefore(draggingEl, row.nextSibling);
-    }
-    refreshDateDividers();
-    saveCurrentUIStateToStorage();
-  });
-
   return row;
-}
-
-// ---- Persist DOM order → storage (for drag reorder in list view) ----
-function saveCurrentUIStateToStorage() {
-  const tabContainer = $.viewList.tabContainer;
-  if (!tabContainer) return;
-  const tabsInDOM = tabContainer.querySelectorAll(".tab-row");
-  const tabs = [];
-  tabsInDOM.forEach((row) => {
-    tabs.push({
-      id: parseInt(row.dataset.tabId),
-      title: row.querySelector(".tab-title")?.textContent || "",
-      url: row.dataset.tabUrl,
-      favIconUrl: row.dataset.tabFavicon || "",
-      description: row.dataset.tabDescription || "",
-      created_at: parseInt(row.dataset.createdAt) || Date.now(),
-      isFavorite: row.dataset.isFavorite === "true",
-    });
-  });
-  if (tabs.length > 0) {
-    chrome.storage.local.set({ tabs });
-  }
 }
 
 // ============================================================

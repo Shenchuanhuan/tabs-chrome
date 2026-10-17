@@ -588,12 +588,6 @@ body {
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.1);
   transform: translateY(-1px);
 }
-.tab-row.dragging {
-  opacity: 0.5;
-  background: #f5f3ff;
-  border-style: dashed;
-  box-shadow: none;
-}
 .tab-top {
   display: flex;
   flex-direction: row;
@@ -689,16 +683,6 @@ body {
 .tab-row .tab-favorite.is-active {
   opacity: 1;
   color: #f59e0b;
-}
-.group.drag-over {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 1px #6366f1;
-}
-.tab-row.drop-above {
-  border-top: 2px solid #6366f1;
-}
-.tab-row.drop-below {
-  border-bottom: 2px solid #6366f1;
 }
 @property --tw-translate-x {
   syntax: "*";
