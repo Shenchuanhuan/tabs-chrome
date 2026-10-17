@@ -2,7 +2,53 @@
   if (window.hasTabsHomeInjected) return;
   window.hasTabsHomeInjected = true;
 
-  const iconUrl = chrome.runtime.getURL("assets/icons/favicon-32x32.png");
+  // Pixel-art cat icon: 16x16 grid, left half only (mirrored to the right)
+  const CAT_PALETTE = {
+    k: "#3f2a1d", // outline / eyes
+    o: "#f59e0b", // fur
+    p: "#f9a8d4", // inner ear / nose / blush
+    w: "#ffffff", // eye highlight
+  };
+  const CAT_PIXELS_LEFT = [
+    "........",
+    ".k......",
+    ".kk.....",
+    ".kpk....",
+    ".kppkkkk",
+    ".koooooo",
+    "kooooooo",
+    "kookwooo",
+    "kookkooo",
+    "kooooooo",
+    "kopoooop",
+    "kooooook",
+    "koooooko",
+    ".koooooo",
+    "..kkkkkk",
+    "........",
+  ];
+
+  function buildCatIconUrl() {
+    let rects = "";
+    CAT_PIXELS_LEFT.forEach((half, y) => {
+      const row = half + [...half].reverse().join("");
+      // Merge horizontal runs of the same color into one rect
+      let x = 0;
+      while (x < row.length) {
+        const ch = row[x];
+        let end = x + 1;
+        while (end < row.length && row[end] === ch) end++;
+        if (CAT_PALETTE[ch]) {
+          rects += `<rect x="${x}" y="${y}" width="${end - x}" height="1" fill="${CAT_PALETTE[ch]}"/>`;
+        }
+        x = end;
+      }
+    });
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">${rects}</svg>`;
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  }
+
+  const iconUrl = buildCatIconUrl();
 
   // Inject speech bubble tail style
   const bubbleStyle = document.createElement("style");
@@ -52,7 +98,8 @@
     background-image: url("${iconUrl}");
     background-repeat: no-repeat;
     background-position: center;
-    background-size: 24px;
+    background-size: 32px;
+    image-rendering: pixelated;
     border-radius: 50%;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     cursor: pointer;

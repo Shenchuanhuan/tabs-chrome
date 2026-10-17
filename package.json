@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "css": "npx @tailwindcss/cli -i style.css -o dist/style.css --watch"
+    "css": "npx @tailwindcss/cli -i style.css -o dist/style.css --watch",
+    "icons": "node scripts/gen-icons.js"
   },
   "devDependencies": {
     "tailwindcss": "^4.1.11"
