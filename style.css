@@ -142,6 +142,34 @@ body {
     display: none;
 }
 
+/* ---- Date Divider (list view) ---- */
+.date-divider {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 2px;
+    font-size: 12px;
+    line-height: 1;
+    color: #6b7280;
+    user-select: none;
+}
+.date-divider ~ .date-divider {
+    margin-top: 16px;
+}
+.date-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #e5e7eb;
+}
+.date-divider-label {
+    font-weight: 600;
+}
+.date-divider-count {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
 /* ---- Tab Row (Cards) ---- */
 .tab-row {
     display: flex;

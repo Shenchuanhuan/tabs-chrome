@@ -60,8 +60,71 @@ function showEmptyState(show) {
 function updateGlobalEmptyState() {
   const tabContainer = $.viewList.tabContainer;
   if (!tabContainer) return;
+  refreshDateDividers();
   const hasTabs = tabContainer.querySelectorAll(".tab-row").length > 0;
   showEmptyState(!hasTabs);
+}
+
+// ---- Date Dividers (list view) ----
+const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
+function getDayKey(timestamp) {
+  const d = new Date(timestamp);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function formatDividerDate(timestamp) {
+  const d = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() - 1,
+  );
+  const key = getDayKey(timestamp);
+  if (key === getDayKey(today)) return "今天";
+  if (key === getDayKey(yesterday)) return "昨天";
+  const monthDay = `${d.getMonth() + 1}月${d.getDate()}日`;
+  if (d.getFullYear() === today.getFullYear()) {
+    return `${monthDay} ${WEEKDAYS[d.getDay()]}`;
+  }
+  return `${d.getFullYear()}年${monthDay}`;
+}
+
+function createDateDivider(timestamp) {
+  const divider = document.createElement("div");
+  divider.className = "date-divider";
+
+  const label = document.createElement("span");
+  label.className = "date-divider-label";
+  label.textContent = formatDividerDate(timestamp);
+  divider.appendChild(label);
+
+  const count = document.createElement("span");
+  count.className = "date-divider-count";
+  divider.appendChild(count);
+
+  return divider;
+}
+
+// Update each divider's count; drop dividers whose day has no rows left
+// (after a row is removed or dragged into another day)
+function refreshDateDividers() {
+  const tabContainer = $.viewList.tabContainer;
+  if (!tabContainer) return;
+  tabContainer.querySelectorAll(".date-divider").forEach((divider) => {
+    let count = 0;
+    let el = divider.nextElementSibling;
+    while (el && !el.classList.contains("date-divider")) {
+      if (el.classList.contains("tab-row")) count++;
+      el = el.nextElementSibling;
+    }
+    if (count === 0) {
+      divider.remove();
+    } else {
+      divider.querySelector(".date-divider-count").textContent = count;
+    }
+  });
 }
 
 // ---- Tab Row Factory (shared across list & favorites views) ----
@@ -227,6 +290,7 @@ function createTabRow(tab) {
     } else {
       row.parentElement.insertBefore(draggingEl, row.nextSibling);
     }
+    refreshDateDividers();
     saveCurrentUIStateToStorage();
   });
 
@@ -498,7 +562,9 @@ function initFavoritesView() {
 function renderElements(tabs) {
   const tabContainer = $.viewList.tabContainer;
   if (!tabContainer) return;
-  tabContainer.querySelectorAll(".tab-row").forEach((el) => el.remove());
+  tabContainer
+    .querySelectorAll(".tab-row, .date-divider")
+    .forEach((el) => el.remove());
 
   if (!tabs || tabs.length === 0) {
     showEmptyState(true);
@@ -509,10 +575,19 @@ function renderElements(tabs) {
   const sortedTabs = [...tabs].sort(
     (a, b) => (b.created_at || 0) - (a.created_at || 0),
   );
+  // Insert a date divider whenever the day changes
+  let lastDayKey = null;
   sortedTabs.forEach((tab) => {
+    const createdAt = tab.created_at || Date.now();
+    const dayKey = getDayKey(createdAt);
+    if (dayKey !== lastDayKey) {
+      tabContainer.appendChild(createDateDivider(createdAt));
+      lastDayKey = dayKey;
+    }
     const tabEl = createTabRow(tab);
     tabContainer.appendChild(tabEl);
   });
+  refreshDateDividers();
 }
 
 function renderFavorites(tabs) {
