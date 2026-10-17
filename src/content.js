@@ -683,27 +683,43 @@ function init() {
   });
 
   // --- Side panel lifecycle (connect to background) ---
-  let port = null;
-  try {
-    port = chrome.runtime.connect({ name: "sidepanel" });
-  } catch (_) {
+  // The MV3 service worker is terminated after ~30s idle, which also
+  // disconnects this port. That is not a reason to close the panel: reconnect
+  // so background can track this panel again. Only close when the extension
+  // itself was reloaded or unloaded.
+  function connectToBackground() {
+    let port = null;
+    try {
+      port = chrome.runtime.connect({ name: "sidepanel" });
+    } catch (_) {
+      // Extension context invalidated
+      return false;
+    }
+
+    chrome.windows.getCurrent((win) => {
+      if (chrome.runtime.lastError || !win) return;
+      try {
+        port.postMessage({ action: "init", windowId: win.id });
+      } catch (_) {}
+    });
+    port.onMessage.addListener((m) => {
+      if (m.action === "close_side_panel") window.close();
+    });
+    port.onDisconnect.addListener(() => {
+      if (!isExtensionAlive()) {
+        window.close();
+        return;
+      }
+      void chrome.runtime.lastError; // mark as checked to avoid console warning
+      if (!connectToBackground()) window.close();
+    });
+    return true;
+  }
+
+  if (!connectToBackground()) {
     // Extension context invalidated, side panel will close shortly
     return;
   }
-
-  chrome.windows.getCurrent((win) => {
-    if (chrome.runtime.lastError || !win) return;
-    try {
-      port.postMessage({ action: "init", windowId: win.id });
-    } catch (_) {}
-  });
-  port.onMessage.addListener((m) => {
-    if (m.action === "close_side_panel") window.close();
-  });
-  port.onDisconnect.addListener(() => {
-    // Extension was reloaded or unloaded — close the side panel
-    window.close();
-  });
   chrome.runtime.onMessage.addListener((m) => {
     if (m.action === "close_side_panel") window.close();
   });
